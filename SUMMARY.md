@@ -8,7 +8,9 @@ A coordination layer for managing a personal development stack across multiple p
 2. **Version tracking**: Each project's `Stackfile.md` pins which stack components it uses and at what version
 3. **DAG-aware updates**: Components depend on each other; updates cascade in topological order (leaves first)
 4. **Auditing**: `/stack-audit` compares project code against component capabilities to find duplication, drift, and missed features
-5. **Gap reporting**: When no component covers a need, it's logged to `STACK_GAPS.md` as a candidate for a new component
+5. **Constraint enforcement**: Projects and components can declare architectural rules in `CONSTRAINTS.md`, validated by audit and enforced by the agent (including pushback when requests conflict)
+6. **Gap reporting**: When no component covers a need, it's logged to `STACK_GAPS.md` as a candidate for a new component
+7. **Portability**: All Claude Code configuration (CLAUDE.md, settings, hooks, scripts) lives in `dotclaude/` and installs via `make setup`
 
 ## Architecture
 
@@ -25,12 +27,20 @@ A coordination layer for managing a personal development stack across multiple p
 ├── skills/                  ← Claude Code slash commands (canonical copies)
 │   ├── stack-integrate.md   ← /stack-integrate: onboard new components
 │   ├── stack-update.md      ← /stack-update: DAG-aware version cascade
-│   ├── stack-audit.md       ← /stack-audit: find drift, duplication, missed capabilities
+│   ├── stack-audit.md       ← /stack-audit: find drift, duplication, missed capabilities + constraint violations
+│   ├── stack-constraints-add.md ← /stack-constraints-add: capture a new architectural constraint
+│   ├── stack-constraints-promote.md ← /stack-constraints-promote: move project constraint to component level
 │   ├── stack-catalog-refresh.md ← /stack-catalog-refresh: rebuild catalog
-│   └── checkpoint.md        ← /checkpoint: enhanced with stack awareness
-└── templates/
-    ├── CAPABILITIES.md      ← template for new component declarations
-    └── Stackfile.md         ← template for new project manifests
+│   └── checkpoint.md        ← /checkpoint: enhanced with stack + constraints awareness
+├── dotclaude/               ← portable ~/.claude/ configuration (canonical source)
+│   ├── CLAUDE.md            ← global instructions
+│   ├── settings.json        ← permissions, hooks, plugins
+│   └── scripts/             ← hook scripts (constraint checker, tab flash/reset)
+├── templates/
+│   ├── CAPABILITIES.md      ← template for new component declarations
+│   ├── CONSTRAINTS.md       ← template for architectural rules
+│   └── Stackfile.md         ← template for new project manifests
+└── .gitignore
 ```
 
 ## Per-Component Files (in each stack component's repo)
@@ -43,6 +53,7 @@ A coordination layer for managing a personal development stack across multiple p
 ## Per-Project Files
 
 - **Stackfile.md** — which stack components the project uses and at what version
+- **CONSTRAINTS.md** — architectural rules enforced during audit and checkpoint (routes to component constraints when applicable)
 
 ## CLI Tool: stack-brain
 
@@ -67,6 +78,8 @@ Handles all deterministic operations so the LLM doesn't waste tokens scanning fi
 - **LLM does judgment, CLI does computation** — lookup/stale/dag/refresh are deterministic; drafting/auditing/migrating need LLM reasoning
 - **Lazy loading by design** — global CLAUDE.md is a thin pointer (~20 tokens), catalog is read only during discovery (~950 tokens), individual CAPABILITIES.md only for matched components (~300 tokens)
 - **Skills are portable** — canonical copies live in brain/skills/, installed to ~/.claude/commands/ via `make setup`
+- **Constraints are captured, not invented** — they come from real corrections during sessions, not upfront design
+- **Agent pushback is a feature** — the agent should challenge requests that violate constraints or architectural intent
 
 ## Token Budget
 

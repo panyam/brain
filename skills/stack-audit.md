@@ -11,7 +11,13 @@ Audit a project for idiomatic use of stack components — find duplicated functi
    - What conventions/patterns it expects (the "Conventions" section)
    - Any integration patterns in CLAUDE.md
 
-3. **Search the project for drift and duplication**: For each capability the component provides, grep the project codebase for patterns that suggest the project is:
+3. **Check constraints**: If the project has a CONSTRAINTS.md, validate each constraint:
+   - For constraints with a `Verify` that specifies a grep pattern or command, run it and check for violations
+   - For constraints with `Verify: manual`, flag them as needing human review
+   - For constraints that reference a component (e.g., "See oneauth/CONSTRAINTS.md: {rule}"), read and check those too
+   - Report violations in a dedicated **Constraint Violations** section (before other findings, since these represent the user's explicit architectural decisions)
+
+4. **Search the project for drift and duplication**: For each capability the component provides, grep the project codebase for patterns that suggest the project is:
    - **Duplicating**: Hand-rolling functionality the component already provides (e.g., writing custom auth middleware when oneauth has it, manual HTMX detection when goapplib has WithHtmx)
    - **Bypassing**: Using a third-party lib for something the stack covers (e.g., using a different JWT library when oneauth handles JWT)
    - **Using old patterns**: Using deprecated APIs or old conventions when newer ones exist in the current version
@@ -19,7 +25,10 @@ Audit a project for idiomatic use of stack components — find duplicated functi
 
 4. **Check for stack gaps**: Scan the project's go.mod/package.json for third-party dependencies. For each one, run `stack-brain lookup <keywords>` to check if a stack component covers that need. If it does, flag it as a potential replacement.
 
-5. **Report findings**: Organize into categories:
+5. **Report findings**: Organize into categories (constraint violations first):
+
+   ### Constraint Violations
+   - **{rule name}**: {what was found} at {file:line} — violates: "{rule text}"
 
    ### Duplicated Functionality
    - {file:line}: {what it does} → already provided by {component}.{capability}
@@ -36,7 +45,11 @@ Audit a project for idiomatic use of stack components — find duplicated functi
    ### Stack Gaps (no component covers this)
    - {third-party dep}: {what it does} — candidate for new stack component?
 
-6. **Prioritize**: Order findings by impact — high (duplicated core functionality), medium (missed capabilities that would simplify code), low (convention drift that's cosmetic).
+6. **Prioritize**: Order findings by impact:
+   - **Critical**: Constraint violations (explicit architectural rules broken)
+   - **High**: Duplicated core functionality
+   - **Medium**: Missed capabilities that would simplify code
+   - **Low**: Convention drift that's cosmetic
 
 7. **Do NOT auto-fix**: Present findings to the user. They decide what to address. This is an audit, not a migration.
 

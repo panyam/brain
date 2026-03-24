@@ -21,7 +21,13 @@ Sync learnings from this session into the project's checked-in documentation.
    - Prioritize: build/test commands, checklists, env vars, gotchas
    - Structure sections to match what the project actually needs
 
-5. **Update other project docs per the checkpoint procedure in global CLAUDE.md** (SUMMARY.md, NEXTSTEPS.md, ROADMAP.md, ARCHITECTURE.md, guides) — only the ones that exist or are clearly needed.
+5. **Update other project docs** (SUMMARY.md, NEXTSTEPS.md, ROADMAP.md, ARCHITECTURE.md, guides) — only the ones that exist or are clearly needed:
+   - SUMMARY.md: What this folder is about, its purposes, architectural choices, and patterns
+   - NEXTSTEPS.md: TODO list for the project
+   - ROADMAP.md: Long-term vision and roadmap
+   - ARCHITECTURE.md: Larger picture and design choices
+   - May include user guides as README.md or XYZ_GUIDE.md
+   - Do not include vendor folders like node_modules
 
 6. **Update stack artifacts** (if this project or component uses the stack):
    - If a **Stackfile.md** exists: verify component versions still match go.mod/package.json, update if drifted
@@ -29,6 +35,7 @@ Sync learnings from this session into the project's checked-in documentation.
    - If a stack component's conventions or API changed: check if a migration note is needed in the component's migrations/ directory
    - If a new stack dependency was added during this session: add it to Stackfile.md
    - If a capability gap was identified: log it to ~/newstack/brain/STACK_GAPS.md
+   - If a **CONSTRAINTS.md** exists: review constraints for accuracy — remove any that are stale, update verify patterns if code moved, and add any new constraints from architectural corrections made during this session
 
 7. **Prune MEMORY.md**: Remove entries now captured in checked-in docs. MEMORY.md should only keep working notes too granular or ephemeral for project docs.
 

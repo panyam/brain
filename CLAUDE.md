@@ -66,10 +66,41 @@ Stack components depend on each other. Always update in topological order (leave
 
 When you identify a capability gap (something needed that no stack component covers), log it to ~/newstack/brain/STACK_GAPS.md with: what was needed, which project needed it, what stopgap was used, and the date.
 
+## Architectural Constraints (CONSTRAINTS.md)
+
+Projects and components can have a CONSTRAINTS.md declaring enforceable architectural rules. This follows the same router pattern as CAPABILITIES.md — project-level is the entry point, and it can either define rules inline or point to component-level constraints.
+
+### How it works
+
+1. **Project-level CONSTRAINTS.md** — the file you read first. Contains project-specific rules and pointers to component constraints.
+2. **Component-level CONSTRAINTS.md** — optional. When a constraint applies to all users of a component, it lives here instead of being duplicated across projects.
+3. **Router pattern** — a project constraint can delegate: `See oneauth/CONSTRAINTS.md: no-direct-jwt`. The project file is always the entry point; component files are reached through it.
+
+### Constraint format
+
+```markdown
+### {Short Rule Name}
+**Rule**: {What must or must not happen}
+**Why**: {The incident or reasoning behind this rule}
+**Verify**: {grep pattern, test command, lint rule, or "manual"}
+**Scope**: {project-wide | specific files/dirs | specific component usage}
+```
+
+### When to create constraints
+
+- When the user corrects an architectural direction mid-session → ask: "Should this become a constraint?"
+- During `/checkpoint` → review any corrections from the session, update CONSTRAINTS.md
+- During `/stack-audit` → validate all constraints (highest priority finding category)
+
+### Promotion path
+
+A constraint starts in a project. If the same rule appears in 2+ projects, promote it to the component's CONSTRAINTS.md and replace project entries with pointers.
+
 ## Component Conventions
 
 Each stack component should have:
 - **CAPABILITIES.md** — what it provides, version, integration, stack dependencies, location (read this to decide whether to use it)
+- **CONSTRAINTS.md** — optional; architectural rules for how this component must be used (read this during audit and before completing work)
 - **CLAUDE.md** — how to work on it, build/test commands, coding conventions (read this when developing or integrating)
 - **CHANGELOG.md** — version history (read this to understand what changed between versions)
 - **migrations/** — actionable migration steps per version bump (read this when upgrading a project)

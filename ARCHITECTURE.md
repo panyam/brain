@@ -36,6 +36,15 @@ Each project has a `Stackfile.md` that tracks which stack components it uses and
 - Version updates (`stack-brain update`)
 - Audit baseline (`/stack-audit`)
 
+### Layer 4: Architectural Constraints (CONSTRAINTS.md)
+
+Enforceable rules about how code should be structured, captured from real "that's wrong" moments. Same router pattern as CAPABILITIES.md:
+- **Project-level CONSTRAINTS.md** — entry point. Rules are inline or point to component constraints.
+- **Component-level CONSTRAINTS.md** — optional. Rules that apply to all consumers of a component.
+- Validated by `/stack-audit` as the highest-priority finding category.
+- Updated by `/checkpoint` when architectural corrections happen during a session.
+- Promotion path: project → component when the same rule appears in 2+ projects.
+
 ## Data Flow
 
 ```
@@ -47,6 +56,13 @@ Project go.mod ──► Stackfile.md ──► stack-brain stale ──► stal
                                               │
                                     /stack-audit findings
                                     /stack-update migrations
+
+Project CONSTRAINTS.md ──► (inline rules + component pointers)
+       │                              │
+       ▼                              ▼
+  /stack-audit validation    Component CONSTRAINTS.md
+       │
+  /checkpoint capture ◄── mid-session architectural corrections
 ```
 
 ## Deterministic vs LLM Split
@@ -59,6 +75,8 @@ Project go.mod ──► Stackfile.md ──► stack-brain stale ──► stal
 | Catalog refresh | Identifying capability gaps |
 | go.mod updates | Auditing for convention drift |
 | Migration file concatenation | Proposing code changes |
+| Grep-based constraint checks | Judging "manual" constraints |
+| | Suggesting new constraints from corrections |
 
 ## Dependency DAG
 
@@ -81,7 +99,20 @@ The system is designed for minimal context window impact:
 
 ## Integration Points
 
-- **Global CLAUDE.md** → thin pointer to brain (installed via `make setup`)
+- **~/.claude/CLAUDE.md** → global instructions including stack pointer and constraint rules (installed via `make setup`)
+- **~/.claude/settings.json** → permissions, hooks (SessionStart constraint check), plugins (installed on fresh machines via `make setup`)
+- **~/.claude/scripts/** → hook scripts including constraint checker (installed via `make setup`)
 - **~/.claude/commands/** → skill files (installed via `make setup`)
 - **~/.local/bin/stack-brain** → CLI binary (installed via `make setup`)
-- **/checkpoint** → enhanced to sync stack artifacts alongside project docs
+- **/checkpoint** → enhanced to sync stack artifacts and constraints alongside project docs
+
+## Portability
+
+All portable Claude Code configuration lives in `dotclaude/` — the canonical source for `~/.claude/` files. On a new machine:
+
+```
+git clone <brain-repo> ~/newstack/brain
+cd ~/newstack/brain && make setup
+```
+
+This installs CLAUDE.md, settings.json, scripts, skills, and the CLI. Settings.json is not overwritten if it already exists.
