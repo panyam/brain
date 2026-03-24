@@ -3,7 +3,7 @@ COMMANDS_DIR := $(HOME)/.claude/commands
 SCRIPTS_DIR := $(HOME)/.claude/scripts
 SETTINGS_JSON := $(HOME)/.claude/settings.json
 BRAIN_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-SKILLS := stack-integrate.md stack-update.md stack-catalog-refresh.md stack-audit.md stack-constraints-add.md stack-constraints-promote.md stack-migrate-frontend.md checkpoint.md
+SKILLS := stack-integrate.md stack-update.md stack-catalog-refresh.md stack-audit.md stack-constraints-check.md stack-constraints-overview.md stack-constraints-add.md stack-constraints-promote.md stack-migrate-frontend.md checkpoint.md
 
 POINTER_LINE := - Before adding third-party dependencies or building infrastructure from scratch, consult ~/newstack/brain/STACK_CATALOG.md
 
