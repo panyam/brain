@@ -32,12 +32,14 @@ Onboard a new component (or sub-component) into the stack system. Can be run fro
 
 7. **Ensure CLAUDE.md exists**: If the component doesn't have a CLAUDE.md, draft one with build/test commands and coding conventions based on the codebase. Ask user to confirm.
 
-8. **Update STACK_CATALOG.md**: Run `/stack-catalog-refresh` or manually add the new entry to ~/newstack/brain/STACK_CATALOG.md:
+8. **Apply cross-cutting conventions**: Read the "Cross-Cutting Conventions" section of ~/newstack/brain/CLAUDE.md. For each convention that applies to this project type (e.g., "Go CLI Release" for Go projects with a main.go), check if the project already follows it. If not, offer to set it up. Use Context7 to fetch current docs for standard tools (goreleaser, GitHub Actions) rather than relying on cached knowledge.
+
+9. **Update STACK_CATALOG.md**: Run `/stack-catalog-refresh` or manually add the new entry to ~/newstack/brain/STACK_CATALOG.md:
    - Add a row to the Capability Index table (and sub-rows for sub-components)
    - Add the component to the Dependency Graph
    - Update the Topological Update Order tiers
 
-9. **Report**: Tell the user what was added, where it fits in the dependency graph, and list any sub-components registered.
+10. **Report**: Tell the user what was added, where it fits in the dependency graph, and list any sub-components registered.
 
 ## Arguments
 - $ARGUMENTS: Optional — a path to the component directory, and/or a capability description (e.g., "/path/to/mylib for distributed task queue with retry semantics"). If omitted, uses current working directory.

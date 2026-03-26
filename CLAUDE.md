@@ -107,6 +107,20 @@ Each stack component should have:
 
 Components may contain **sub-components** (e.g., a TypeScript client embedded in a Go repo). These are declared as sub-entries in the parent's CAPABILITIES.md with their own location and module path.
 
+## Cross-Cutting Conventions
+
+These apply to all stack projects, not just a single component. Skills like `/stack-audit` and `/stack-integrate` should check these.
+
+### Go CLI Release
+- GoReleaser v2 for binary releases (use Context7 for current syntax if needed)
+- Version via ldflags: `-X {module}/cmd.Version={{.Version}}`
+- Platforms: linux/darwin/windows × amd64/arm64, `CGO_ENABLED=0`, `-trimpath`
+- CI: GitHub Actions — test on push/PR to main, release on `v*` tag push
+
+### Go Module Hygiene
+- Pre-push hook must run `make test` and fail if `go.mod` has uncommented `replace.*locallinks` (local dev symlinks must not leak to remote)
+- `go.mod` replace directives for local dev should be commented out before push
+
 ## Integration Pattern
 
 Go projects use replace directives for local development, pointing to wherever the component lives:
