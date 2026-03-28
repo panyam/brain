@@ -68,6 +68,14 @@ Handles all deterministic operations so the LLM doesn't waste tokens scanning fi
 | `stack-brain migrations <comp> <from> <to>` | Concatenate migration docs |
 | `stack-brain update <project-dir>` | Bump stale deps in go.mod |
 | `stack-brain refresh` | Rebuild STACK_CATALOG.md |
+| `stack-brain env create <name>` | Create a new environment |
+| `stack-brain env add [paths...]` | Add repos to active environment |
+| `stack-brain env add --external <path>` | Track external repo (pointer only) |
+| `stack-brain env list` | List all environments |
+| `stack-brain env info` | Show active environment details |
+| `stack-brain env remove <path>` | Remove repo from environment |
+
+All existing commands (lookup, stale, dag, refresh) are automatically scoped to the active environment when one is detected.
 
 ## Design Decisions
 

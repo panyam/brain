@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 func newRefreshCmd() *cobra.Command {
@@ -23,16 +22,15 @@ index, dependency graph, and topological tiers.`,
 }
 
 func runRefresh(cmd *cobra.Command, args []string) error {
-	brainDir := expandHome(viper.GetString("brain_dir"))
-	stackRoot := filepath.Dir(brainDir)
+	roots, brainDir := discoveryRootsWithBrainDir()
 
-	components, err := DiscoverComponents(stackRoot)
+	components, err := DiscoverComponents(roots...)
 	if err != nil {
 		return fmt.Errorf("discovering components: %w", err)
 	}
 
 	if len(components) == 0 {
-		return fmt.Errorf("no CAPABILITIES.md files found under %s", stackRoot)
+		return fmt.Errorf("no CAPABILITIES.md files found under %v", roots)
 	}
 
 	// Sort by status priority then name

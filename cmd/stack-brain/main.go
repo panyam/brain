@@ -27,6 +27,7 @@ func main() {
 		newMigrationsCmd(),
 		newRefreshCmd(),
 		newUpdateCmd(),
+		newEnvCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

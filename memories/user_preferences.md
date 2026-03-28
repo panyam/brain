@@ -16,3 +16,8 @@ type: feedback
 - Sub-components (embedded TS clients etc.) should be declared in parent's CAPABILITIES.md
 - The user uses bare repos + worktrees (via `wt`/worktrunk tool)
 - The user values the LLM coordinating and driving, not explaining processes
+- Evolve existing tools rather than building new ones (not N+1) — validated when choosing to add environments to stack-brain rather than creating a separate "codebrain" tool
+- YAGNI on plugin frameworks — don't build abstraction until there are 2+ concrete use cases (validated: no Plugin interface, just stack subcommands)
+- Pull model over push for external repo tracking — the consumer asks "what changed upstream?" rather than trying to notify upstream contributors
+- CLI-first, MCP later — emit handles cross-agent delivery without the complexity of a server
+- Global config switching is an anti-pattern — prefer env var + cwd auto-detection (zero tokens, zero config management)

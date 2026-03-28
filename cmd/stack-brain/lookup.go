@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 type LookupResult struct {
@@ -45,10 +44,9 @@ Examples:
 }
 
 func runLookup(cmd *cobra.Command, args []string) error {
-	brainDir := viper.GetString("brain_dir")
-	stackRoot := expandHome(brainDir + "/..")
+	roots := discoveryRoots()
 
-	components, err := DiscoverComponents(stackRoot)
+	components, err := DiscoverComponents(roots...)
 	if err != nil {
 		return fmt.Errorf("discovering components: %w", err)
 	}

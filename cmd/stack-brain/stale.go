@@ -53,14 +53,9 @@ func runStale(cmd *cobra.Command, args []string) error {
 	}
 
 	// Discover all components to map names to locations
-	brainDir := expandHome(os.Getenv("STACK_BRAIN_DIR"))
-	if brainDir == "" {
-		home, _ := os.UserHomeDir()
-		brainDir = filepath.Join(home, "newstack", "brain")
-	}
-	stackRoot := filepath.Dir(brainDir)
+	roots := discoveryRoots()
 
-	components, err := DiscoverComponents(stackRoot)
+	components, err := DiscoverComponents(roots...)
 	if err != nil {
 		return fmt.Errorf("discovering components: %w", err)
 	}

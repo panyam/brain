@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 type DagOutput struct {
@@ -37,10 +35,9 @@ the correct update order.`,
 }
 
 func runDag(cmd *cobra.Command, args []string) error {
-	brainDir := viper.GetString("brain_dir")
-	stackRoot := filepath.Dir(expandHome(brainDir))
+	roots := discoveryRoots()
 
-	components, err := DiscoverComponents(stackRoot)
+	components, err := DiscoverComponents(roots...)
 	if err != nil {
 		return fmt.Errorf("discovering components: %w", err)
 	}

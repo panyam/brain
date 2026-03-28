@@ -1,35 +1,30 @@
 ---
 name: Stack Brain System
-description: Personal dev stack management system — coordination layer for component discovery, version tracking, DAG-aware updates, and gap reporting
+description: Environment-based codebase governance — component discovery, version tracking, DAG-aware updates, constraint enforcement, and agent-agnostic portability
 type: project
 ---
 
-A "stack brain" system manages a personal development stack (16+ components, mostly in ~/newstack) consumed by 18+ projects (mostly in ~/projects).
+Stack brain manages **environments** — named collections of repos reasoned about together. The personal stack (16+ components in ~/newstack consumed by 18+ projects) is `env:newstack`, but any repo collection can be its own environment.
 
-**Key artifacts:**
-- ~/newstack/brain/ — coordination layer (STACK_CATALOG.md, STACK_GAPS.md, CLAUDE.md, skills/, cmd/stack-brain/)
-- CAPABILITIES.md — per-component self-declaration of what it provides, dependencies, location
-- Stackfile.md — per-project record of which stack components are used and at what version
-- CHANGELOG.md + migrations/ — per-component version history and migration steps (future)
+**Key concepts:**
+- **Environment** — a lens over repos: defines scope for lookup/dag/stale/audit. Detected automatically via STACK_ENV or cwd membership.
+- **Intrinsic to repos** — CAPABILITIES.md, CONSTRAINTS.md, CLAUDE.md live in each repo, unchanged across environments.
+- **External repos** — repos you track but don't control get thin pointer files (~80 tokens) in the env config, not in the repo itself.
+- **Semantic deps** — DAG edges can be "hard" (module import) or "semantic" (fork-of, shares-api-contract).
 
 **CLI tool (stack-brain):**
-- `lookup` — multi-phrase keyword search across capabilities
-- `stale` — compare project versions against component HEAD tags
-- `dag` — topological sort of dependency graph
-- `update` — bump stale deps in go.mod
-- `migrations` — concatenate migration files between versions
-- `refresh` — rebuild STACK_CATALOG.md from all CAPABILITIES.md files
+- `lookup`, `stale`, `dag`, `refresh`, `update`, `migrations` — all env-scoped when active, legacy fallback otherwise
+- `env create/list/add/remove/info` — environment management
+- `env add --external` — track external repos with pointer files
+- `env create --import-catalog` — migrate from existing STACK_CATALOG.md
 
-**Skills:**
-- `/stack-integrate` — onboard new components from any path
-- `/stack-update` — DAG-aware cascading version updates
-- `/stack-audit` — find duplication, drift, missed capabilities
-- `/stack-catalog-refresh` — regenerate catalog
-- `/checkpoint` — enhanced to sync stack artifacts
+**Environment config:** `~/.config/stack-brain/envs/<name>/` with env.yaml, conventions.md, gaps.md, catalog.md, external/
 
 **Design principles:**
-- CAPABILITIES.md is source of truth, catalog is generated index
-- Version derived from git tags/package.json, not manually maintained
-- Components can live anywhere (no hardcoded root)
-- LLM does judgment, CLI does computation
-- Lazy loading: ~1,300 tokens for a discovery decision
+- Environments are lenses, not containers — repos are intrinsic
+- STACK_ENV + cwd auto-detection — zero config switching, zero LLM tokens
+- External repos get pointers, not summaries — route to source, never stale
+- Third-party lib docs via context7 — nothing stored
+- Conventions use router pattern — inline → pointer when they grow
+- CLI-first, MCP later if needed
+- Planned: `stack-brain emit` for agent-agnostic instruction file generation (CLAUDE.md, .cursorrules, etc.)

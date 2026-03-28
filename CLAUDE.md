@@ -38,6 +38,56 @@ stack-brain refresh
 
 All commands output JSON (except migrations which outputs markdown). Use these instead of reading raw files.
 
+## Environments
+
+Environments let you group repos and reason about them together. The existing newstack setup is one environment; you can create others for work projects or any repo collection.
+
+```bash
+# Create an environment
+stack-brain env create gvip
+
+# Add repos (supports globs)
+stack-brain env add ~/work/GVIP/*
+
+# Add external repos you don't control (pointer files only, nothing written to repo)
+stack-brain env add ~/work/AVIP/AVIP_distribution --external --dep-type semantic --relationship "fork-of"
+
+# List environments
+stack-brain env list
+
+# Show active environment details
+stack-brain env info
+
+# Migrate existing newstack setup
+stack-brain env create newstack --import-catalog ~/newstack/brain/STACK_CATALOG.md --brain-dir ~/newstack/brain
+```
+
+### Environment Detection (zero config switching)
+
+Detection is automatic and deterministic (0 LLM tokens):
+1. `STACK_ENV` env var — explicit override
+2. cwd membership — if you're inside a registered repo, that env is active
+3. `--env` flag on individual commands
+
+All existing commands (lookup, stale, dag, refresh) are env-scoped when an environment is active. Without an active env, they fall back to legacy brain-dir behavior.
+
+### External Repos
+
+For repos you work with but don't control, use `--external`. This creates thin pointer files (~80 tokens) in the environment config — NOT in the external repo. The pointer tells the LLM *where to look*, not *what's there*. Actual source is read on demand.
+
+External repos support semantic dependencies (fork-of, shares-api-contract) alongside hard module deps. Both show up in the DAG and are checked by `stale`.
+
+### Environment Config Location
+
+```
+~/.config/stack-brain/envs/<name>/
+  env.yaml          — repo list, metadata
+  conventions.md    — cross-cutting rules for this group
+  gaps.md           — capability gaps
+  catalog.md        — auto-generated (via stack-brain refresh)
+  external/         — pointer files for external repos
+```
+
 ## Discovery Rule
 
 Before adding any third-party dependency or building new infrastructure:
