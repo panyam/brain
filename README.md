@@ -2,6 +2,42 @@
 
 Coordination layer for managing environments of repos — component discovery, version tracking, DAG-aware updates, architectural constraint enforcement, and agent-agnostic instruction file generation. Works with Claude Code, Cursor, Windsurf, and Copilot.
 
+## Cheat Sheet
+
+```
+# SETUP (once)
+cd ~/newstack/brain && make setup
+
+# CREATE AN ENVIRONMENT
+stack-brain env create myenv
+stack-brain env add ~/path/to/repo --env myenv           # internal repo
+stack-brain env add ~/path/to/other --external --env myenv  # external (pointer only)
+
+# ONBOARD A REPO (from the repo dir)
+stack-brain env add . --env myenv
+/stack-integrate                    # generates CAPABILITIES.md, checks conventions
+stack-brain emit myenv .            # push constraints to all agent formats
+
+# DAILY WORK (auto-detects env from cwd)
+stack-brain lookup "auth pipeline"  # find components
+stack-brain stale .                 # check outdated deps + external drift
+stack-brain dag                     # dependency tiers
+
+# AFTER EDITING CONSTRAINTS
+vim CONSTRAINTS.md                  # edit source of truth
+stack-brain emit myenv .            # sync to CLAUDE.md, .cursorrules, etc.
+
+# AUDIT & MAINTAIN
+/stack-audit                        # find violations, drift, missed capabilities
+/checkpoint                         # sync session learnings to docs
+stack-brain refresh                 # rebuild catalog from CAPABILITIES.md files
+
+# ENVIRONMENT DETECTION (zero config)
+# 1. STACK_ENV=myenv (env var)
+# 2. cwd inside a registered repo (automatic)
+# 3. --env myenv (per-command flag)
+```
+
 ## Why This Exists
 
 When working with AI coding agents across many projects and libraries, three problems keep coming up:
