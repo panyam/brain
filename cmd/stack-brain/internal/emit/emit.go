@@ -59,7 +59,7 @@ type Content struct {
 // environment config dir (empty string if no env active).
 func GatherContent(repoDir string, envDir string) (*Content, error) {
 	c := &Content{
-		RepoName: filepath.Base(repoDir),
+		RepoName: inferRepoName(repoDir),
 	}
 
 	// Read repo's CONSTRAINTS.md
@@ -96,6 +96,32 @@ func GatherContent(repoDir string, envDir string) (*Content, error) {
 	}
 
 	return c, nil
+}
+
+// inferRepoName determines a meaningful name for a repo directory.
+// Handles bare repo worktrees where the dir is "main/" or "master/" by
+// walking up to the parent. Also checks CAPABILITIES.md for a declared name.
+func inferRepoName(repoDir string) string {
+	// Try CAPABILITIES.md first (it has the canonical name)
+	capPath := filepath.Join(repoDir, "CAPABILITIES.md")
+	if f, err := os.Open(capPath); err == nil {
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if strings.HasPrefix(line, "# ") {
+				f.Close()
+				return strings.TrimPrefix(line, "# ")
+			}
+		}
+		f.Close()
+	}
+
+	base := filepath.Base(repoDir)
+	// Common worktree directory names — use parent instead
+	if base == "main" || base == "master" || base == "develop" {
+		return filepath.Base(filepath.Dir(repoDir))
+	}
+	return base
 }
 
 // extractConstraintRules pulls the constraint entries from CONSTRAINTS.md,

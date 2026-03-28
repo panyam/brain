@@ -11,18 +11,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// newEmitCmd builds "stack-brain emit" which compiles repo constraints,
-// capabilities, and environment conventions into agent-native instruction files.
+// newEmitCmd builds "stack-brain emit <env> [repos...]" which compiles repo
+// constraints, capabilities, and environment conventions into agent-native
+// instruction files.
 //
-// For CLAUDE.md, uses marker-based injection to preserve hand-written content.
-// For .cursor/rules/stack-brain.mdc, writes a dedicated file (no injection needed).
-// For .windsurfrules and copilot-instructions.md, uses marker-based injection.
+// The env argument is required — you must be explicit about which environment's
+// conventions are being stamped into the repos. This is intentional: emit is a
+// write operation that pushes knowledge into repos, so there should be no magic.
+//
+// If no repos are given, emits into all repos registered in the environment.
 func newEmitCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "emit [repo-dir]",
+		Use:   "emit <env> [repos...]",
 		Short: "Generate agent instruction files from constraints and conventions",
 		Long: `Compiles CONSTRAINTS.md, CAPABILITIES.md, and environment conventions
 into agent-native instruction files.
+
+The env argument is required — it determines which environment's conventions
+are included alongside each repo's own constraints.
+
+If no repos are given, emits into all repos registered in the environment.
 
 Supported targets:
   claude    → CLAUDE.md (marker-based injection)
@@ -31,13 +39,12 @@ Supported targets:
   copilot   → .github/copilot-instructions.md (marker-based injection)
   all       → all of the above
 
-If no repo-dir is given, uses the current directory.
-
 Examples:
-  stack-brain emit                    # emit all targets for cwd
-  stack-brain emit --target claude    # CLAUDE.md only
-  stack-brain emit ~/work/GVIP/svc   # emit for specific repo`,
-		Args: cobra.MaximumNArgs(1),
+  stack-brain emit newstack                                    # all repos in env
+  stack-brain emit newstack ~/projects/lilbattle ~/projects/slyds  # specific repos
+  stack-brain emit gvip --target cursor                        # cursor only
+  stack-brain emit newstack --dry-run                          # preview`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: runEmit,
 	}
 
@@ -48,14 +55,34 @@ Examples:
 }
 
 func runEmit(cmd *cobra.Command, args []string) error {
-	repoDir := "."
-	if len(args) > 0 {
-		repoDir = env.ExpandHome(args[0])
+	envName := args[0]
+
+	// Load the environment
+	e, err := env.Load(envName)
+	if err != nil {
+		return fmt.Errorf("loading environment %q: %w", envName, err)
+	}
+	envDir := env.EnvDir(envName)
+
+	// Determine which repos to emit into
+	var repoDirs []string
+	if len(args) > 1 {
+		// Explicit repos from args
+		for _, arg := range args[1:] {
+			absPath, err := filepath.Abs(env.ExpandHome(arg))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: cannot resolve %s: %v\n", arg, err)
+				continue
+			}
+			repoDirs = append(repoDirs, absPath)
+		}
+	} else {
+		// All repos in the environment
+		repoDirs = e.Repos
 	}
 
-	repoDir, err := filepath.Abs(repoDir)
-	if err != nil {
-		return fmt.Errorf("resolving repo dir: %w", err)
+	if len(repoDirs) == 0 {
+		return fmt.Errorf("no repos to emit into — add repos to env %q or specify them as arguments", envName)
 	}
 
 	targetFlag, _ := cmd.Flags().GetString("target")
@@ -70,62 +97,67 @@ func runEmit(cmd *cobra.Command, args []string) error {
 		targets = []emit.Target{t}
 	}
 
-	// Determine env dir (if active)
-	envDir := ""
-	envName, err := env.Detect()
-	if err == nil && envName != "" {
-		envDir = env.EnvDir(envName)
-	}
-
-	// Gather content from repo + env
-	content, err := emit.GatherContent(repoDir, envDir)
-	if err != nil {
-		return fmt.Errorf("gathering content: %w", err)
-	}
-
-	emitted := 0
-	for _, target := range targets {
-		output := emit.EmitForTarget(target, content)
-		if output == "" {
+	totalEmitted := 0
+	for _, repoDir := range repoDirs {
+		// Verify directory exists
+		if info, err := os.Stat(repoDir); err != nil || !info.IsDir() {
+			fmt.Fprintf(os.Stderr, "warning: %s is not a directory, skipping\n", repoDir)
 			continue
 		}
 
-		outPath := emit.OutputPath(target, repoDir)
-		if outPath == "" {
+		// Gather content from repo + env
+		content, err := emit.GatherContent(repoDir, envDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: %s: %v\n", repoDir, err)
 			continue
 		}
 
-		if dryRun {
-			fmt.Fprintf(os.Stderr, "--- %s → %s ---\n", target, outPath)
-			fmt.Println(output)
-			fmt.Println()
-			emitted++
-			continue
-		}
-
-		// Cursor gets a dedicated file (fully managed by stack-brain).
-		// Others use marker injection to preserve existing content.
-		switch target {
-		case emit.TargetCursor:
-			if err := emit.WriteDirect(outPath, output); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: %s: %v\n", outPath, err)
+		repoName := content.RepoName
+		repoEmitted := 0
+		for _, target := range targets {
+			output := emit.EmitForTarget(target, content)
+			if output == "" {
 				continue
 			}
-		default:
-			if err := emit.WriteWithMarkers(outPath, output); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: %s: %v\n", outPath, err)
+
+			outPath := emit.OutputPath(target, repoDir)
+			if outPath == "" {
 				continue
 			}
-		}
 
-		fmt.Fprintf(os.Stderr, "  ✓ %s → %s\n", target, outPath)
-		emitted++
+			if dryRun {
+				fmt.Fprintf(os.Stderr, "--- %s: %s → %s ---\n", repoName, target, outPath)
+				fmt.Println(output)
+				fmt.Println()
+				repoEmitted++
+				continue
+			}
+
+			// Cursor gets a dedicated file (fully managed by stack-brain).
+			// Others use marker injection to preserve existing content.
+			switch target {
+			case emit.TargetCursor:
+				if err := emit.WriteDirect(outPath, output); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: %s: %v\n", outPath, err)
+					continue
+				}
+			default:
+				if err := emit.WriteWithMarkers(outPath, output); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: %s: %v\n", outPath, err)
+					continue
+				}
+			}
+
+			fmt.Fprintf(os.Stderr, "  ✓ %s: %s → %s\n", repoName, target, outPath)
+			repoEmitted++
+		}
+		totalEmitted += repoEmitted
 	}
 
-	if emitted == 0 {
+	if totalEmitted == 0 {
 		fmt.Fprintln(os.Stderr, "no content to emit (no constraints, conventions, or capabilities found)")
 	} else if !dryRun {
-		fmt.Fprintf(os.Stderr, "✓ Emitted %d target(s)\n", emitted)
+		fmt.Fprintf(os.Stderr, "✓ Emitted %d file(s) across %d repo(s)\n", totalEmitted, len(repoDirs))
 	}
 
 	return nil
