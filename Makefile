@@ -72,6 +72,10 @@ setup-cli:
 		cp stack-brain "$(HOME)/.local/bin/stack-brain" && \
 		echo "· Installed stack-brain CLI to ~/.local/bin/stack-brain"
 
+# Install into $GOBIN
+install:
+	cd cmd/stack-brain/ && go build -ldflags="$(LDFLAGS)" -o ${GOBIN}/stack-brain .
+
 ## refresh: Rebuild STACK_CATALOG.md via CLI
 refresh:
 	@stack-brain refresh
