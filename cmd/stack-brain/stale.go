@@ -8,9 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/panyam/stack-brain/internal/env"
 	"github.com/spf13/cobra"
 )
 
+// StaleEntry reports staleness for a single component (from Stackfile.md).
 type StaleEntry struct {
 	Component      string `json:"component"`
 	Module         string `json:"module"`
@@ -20,6 +22,23 @@ type StaleEntry struct {
 	CurrentRef     string `json:"current_ref,omitempty"`
 	LatestRef      string `json:"latest_ref,omitempty"`
 	Stale          bool   `json:"stale"`
+}
+
+// ExternalStaleEntry reports commit drift for an external repo.
+type ExternalStaleEntry struct {
+	Name         string `json:"name"`
+	Path         string `json:"path"`
+	LastChecked  string `json:"last_checked"`  // Commit hash when we last looked
+	CurrentHead  string `json:"current_head"`  // Current HEAD commit
+	Relationship string `json:"relationship,omitempty"`
+	Stale        bool   `json:"stale"`
+	CommitsBehind int   `json:"commits_behind,omitempty"` // 0 if we can't count
+}
+
+// StaleOutput combines Stackfile-based staleness and external repo drift.
+type StaleOutput struct {
+	Components []StaleEntry         `json:"components,omitempty"`
+	Externals  []ExternalStaleEntry `json:"externals,omitempty"`
 }
 
 func newStaleCmd() *cobra.Command {
@@ -41,64 +60,106 @@ func runStale(cmd *cobra.Command, args []string) error {
 		projectDir = expandHome(args[0])
 	}
 
+	output := StaleOutput{}
+
+	// Check Stackfile.md-based staleness (existing behavior)
 	stackfilePath := filepath.Join(projectDir, "Stackfile.md")
 	pinned, err := parseStackfile(stackfilePath)
-	if err != nil {
-		return fmt.Errorf("reading Stackfile.md: %w", err)
+	if err == nil && len(pinned) > 0 {
+		roots := discoveryRoots()
+		components, err := DiscoverComponents(roots...)
+		if err != nil {
+			return fmt.Errorf("discovering components: %w", err)
+		}
+
+		compByName := make(map[string]*Component)
+		for _, c := range components {
+			compByName[strings.ToLower(c.Name)] = c
+		}
+
+		for _, p := range pinned {
+			entry := StaleEntry{
+				Component:      p.Name,
+				Module:         p.Module,
+				CurrentVersion: p.Version,
+			}
+
+			comp, ok := compByName[strings.ToLower(p.Name)]
+			if !ok {
+				entry.Stale = false
+				entry.LatestVersion = "unknown"
+				output.Components = append(output.Components, entry)
+				continue
+			}
+
+			entry.Location = comp.Location
+			entry.LatestVersion = comp.Version
+			entry.LatestRef = gitHeadShort(comp.Location)
+			entry.Stale = normalizeVersion(entry.CurrentVersion) != normalizeVersion(entry.LatestVersion)
+
+			output.Components = append(output.Components, entry)
+		}
 	}
 
-	if len(pinned) == 0 {
-		fmt.Fprintln(os.Stderr, "no stack components found in Stackfile.md")
+	// Check external repos for commit drift (when env is active)
+	output.Externals = checkExternalStaleness()
+
+	if len(output.Components) == 0 && len(output.Externals) == 0 {
+		fmt.Fprintln(os.Stderr, "no stack components or external repos to check")
 		return nil
-	}
-
-	// Discover all components to map names to locations
-	roots := discoveryRoots()
-
-	components, err := DiscoverComponents(roots...)
-	if err != nil {
-		return fmt.Errorf("discovering components: %w", err)
-	}
-
-	// Build lookup by component name (lowercased)
-	compByName := make(map[string]*Component)
-	for _, c := range components {
-		compByName[strings.ToLower(c.Name)] = c
-	}
-
-	var results []StaleEntry
-	for _, p := range pinned {
-		entry := StaleEntry{
-			Component:      p.Name,
-			Module:         p.Module,
-			CurrentVersion: p.Version,
-		}
-
-		comp, ok := compByName[strings.ToLower(p.Name)]
-		if !ok {
-			// Component not found in stack — skip
-			entry.Stale = false
-			entry.LatestVersion = "unknown"
-			results = append(results, entry)
-			continue
-		}
-
-		entry.Location = comp.Location
-		entry.LatestVersion = comp.Version
-
-		// Get git HEAD of component
-		latestRef := gitHeadShort(comp.Location)
-		entry.LatestRef = latestRef
-
-		// Compare versions (normalize v prefix)
-		entry.Stale = normalizeVersion(entry.CurrentVersion) != normalizeVersion(entry.LatestVersion)
-
-		results = append(results, entry)
 	}
 
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	return enc.Encode(results)
+	return enc.Encode(output)
+}
+
+// checkExternalStaleness compares each external repo's last_checked commit
+// against its current HEAD to detect drift. Also counts commits behind if possible.
+func checkExternalStaleness() []ExternalStaleEntry {
+	envName, err := env.Detect()
+	if err != nil || envName == "" {
+		return nil
+	}
+
+	e, err := env.Load(envName)
+	if err != nil {
+		return nil
+	}
+
+	externals, err := e.ListExternals()
+	if err != nil || len(externals) == 0 {
+		return nil
+	}
+
+	var results []ExternalStaleEntry
+	for _, ext := range externals {
+		entry := ExternalStaleEntry{
+			Name:         ext.Name,
+			Path:         ext.Path,
+			LastChecked:  ext.LastChecked,
+			Relationship: ext.Relationship,
+		}
+
+		// Get current HEAD
+		currentHead := gitHeadShortAt(ext.Path)
+		entry.CurrentHead = currentHead
+
+		if ext.LastChecked == "" || currentHead == "" {
+			entry.Stale = currentHead != ""
+		} else {
+			entry.Stale = ext.LastChecked != currentHead
+		}
+
+		// Count commits between last_checked and HEAD
+		if entry.Stale && ext.LastChecked != "" {
+			entry.CommitsBehind = gitCountCommits(ext.Path, ext.LastChecked, "HEAD")
+		}
+
+		results = append(results, entry)
+	}
+
+	return results
 }
 
 type pinnedComponent struct {
