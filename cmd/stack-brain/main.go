@@ -28,6 +28,7 @@ func main() {
 		newRefreshCmd(),
 		newUpdateCmd(),
 		newEnvCmd(),
+		newEmitCmd(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {
