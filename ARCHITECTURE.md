@@ -132,12 +132,14 @@ cd ~/newstack/brain && make setup
 
 This installs CLAUDE.md, settings.json, scripts, skills, and the CLI. Settings.json is not overwritten if it already exists.
 
-## Agent-Agnostic Design (Future: Emit System)
+## Agent-Agnostic Emit
 
-The environment system is designed to support multiple AI agents, not just Claude Code. A planned `stack-brain emit` command will compile environment knowledge (constraints, conventions) into each agent's native instruction format:
-- Claude Code → CLAUDE.md
-- Cursor → .cursor/rules/
-- Windsurf → .windsurfrules
-- Copilot → .github/copilot-instructions.md
+`stack-brain emit <env> [repos...]` compiles repo constraints + env conventions into each agent's native instruction format:
+- Claude Code → CLAUDE.md (marker-based injection preserves hand-written content)
+- Cursor → .cursor/rules/stack-brain.mdc (dedicated file with MDC frontmatter)
+- Windsurf → .windsurfrules (marker-based injection)
+- Copilot → .github/copilot-instructions.md (marker-based injection)
 
-The `.config/stack-brain/` knowledge store is the single source of truth; agent-specific files are generated artifacts.
+The env argument is required — emit is a write operation that pushes knowledge into repos, so there's no implicit detection. CONSTRAINTS.md is the source of truth; emitted files are generated artifacts. Re-running emit is idempotent.
+
+Repo names in emit output are inferred from CAPABILITIES.md H1 headings, with fallback to parent directory for bare repo worktrees (main/, master/).

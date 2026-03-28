@@ -21,3 +21,6 @@ type: feedback
 - Pull model over push for external repo tracking — the consumer asks "what changed upstream?" rather than trying to notify upstream contributors
 - CLI-first, MCP later — emit handles cross-agent delivery without the complexity of a server
 - Global config switching is an anti-pattern — prefer env var + cwd auto-detection (zero tokens, zero config management)
+- Write operations (emit) should require explicit params, not implicit detection — "be explicit about what you're stamping into repos"
+- User prefers to run onboarding commands themselves (e.g., `/stack-integrate`) rather than having the agent create files directly
+- Deprioritize features that duplicate existing workflows — `stack-brain checkpoint` CLI was deprioritized because `/checkpoint` skill + manual emit already covers the need

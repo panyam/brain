@@ -27,4 +27,7 @@ Stack brain manages **environments** — named collections of repos reasoned abo
 - Third-party lib docs via context7 — nothing stored
 - Conventions use router pattern — inline → pointer when they grow
 - CLI-first, MCP later if needed
-- Planned: `stack-brain emit` for agent-agnostic instruction file generation (CLAUDE.md, .cursorrules, etc.)
+- `emit <env> [repos...]` — compile constraints + conventions into agent instruction files (CLAUDE.md, .cursorrules, .windsurfrules, copilot). Requires explicit env arg (write ops should not be implicit). Marker-based injection preserves hand-written content. Idempotent.
+- Repo name inference from CAPABILITIES.md H1 heading (handles worktree dirs like main/master)
+- `stale` now reports external repo commit drift with commits_behind count
+- `dag` now includes semantic_edges and external_nodes fields

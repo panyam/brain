@@ -38,6 +38,28 @@ stack-brain refresh
 
 All commands output JSON (except migrations which outputs markdown). Use these instead of reading raw files.
 
+## Emit (Agent-Agnostic Instruction Files)
+
+Compiles CONSTRAINTS.md + CAPABILITIES.md + env conventions into agent-native formats. The env argument is required — emit is a write operation, so be explicit about which env's conventions are stamped in.
+
+```bash
+# Emit to all agents for specific repos
+stack-brain emit newstack ~/projects/lilbattle ~/projects/slyds
+
+# Emit to all repos in an environment
+stack-brain emit newstack
+
+# Single agent target
+stack-brain emit newstack ~/projects/lilbattle --target cursor
+
+# Preview without writing
+stack-brain emit newstack --dry-run
+```
+
+Targets: `claude` (CLAUDE.md, marker injection), `cursor` (.cursor/rules/stack-brain.mdc), `windsurf` (.windsurfrules), `copilot` (.github/copilot-instructions.md), `all` (default).
+
+Marker injection (`<!-- stack-brain:start/end -->`) preserves hand-written content in existing files. Re-running emit is idempotent.
+
 ## Environments
 
 Environments let you group repos and reason about them together. The existing newstack setup is one environment; you can create others for work projects or any repo collection.

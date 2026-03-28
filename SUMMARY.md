@@ -74,6 +74,9 @@ Handles all deterministic operations so the LLM doesn't waste tokens scanning fi
 | `stack-brain env list` | List all environments |
 | `stack-brain env info` | Show active environment details |
 | `stack-brain env remove <path>` | Remove repo from environment |
+| `stack-brain emit <env> [repos...]` | Generate agent instruction files (CLAUDE.md, .cursorrules, etc.) |
+| `stack-brain emit <env> --target cursor` | Emit for a specific agent |
+| `stack-brain emit <env> --dry-run` | Preview without writing |
 
 All existing commands (lookup, stale, dag, refresh) are automatically scoped to the active environment when one is detected.
 
