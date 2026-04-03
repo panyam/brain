@@ -7,21 +7,22 @@
 
 | Component | Module | Location | Version | Status | Capabilities |
 |-----------|--------|----------|---------|--------|-------------|
-| devloop | github.com/panyam/devloop | newstack/devloop | v0.0.73 | Mature | dev-orchestration, config-driven, glob-triggers, process-lifecycle, grpc-api,... |
-| MassRelay | github.com/panyam/massrelay | newstack/massrelay | v0.0.11 | Mature | websocket-relay, room-routing, peer-management, collab-protocol, admin-api, s... |
-| OneAuth | github.com/panyam/oneauth | newstack/oneauth/main | v0.0.38 | Mature | local-authentication, oauth-integration, jwt-management, federated-auth, sess... |
-| ServiceKit | github.com/panyam/servicekit | newstack/servicekit/master | v0.0.6 | Mature | websocket-infrastructure, generic-connection, codec-system, grpc-over-websock... |
-| cachewarden | github.com/GM-InnerSource/cachewarden | newstack/cachewarden/main | 69cc1c7 | Active | read-through-cache, singleflight, distributed-lock, circuit-breaker, storage-... |
-| GoAppLib | github.com/panyam/goapplib | newstack/goapplib/main | v0.0.34 | Active | web-app-scaffold, view-context, page-mixins, htmx-support, responsive-ui, use... |
-| protoc-gen-dal | github.com/panyam/protoc-gen-dal | newstack/protoc-gen-dal/main | v0.0.13 | Active | dal-codegen, sidecar-pattern, type-safe-converters, gorm-target, datastore-ta... |
-| protoc-gen-go-mcp | github.com/redpanda-data/protoc-gen-go-mcp | newstack/protoc-gen-go-mcp | d5c77c3 | Active | mcp-server-gen, json-schema-gen, tool-registration, annotation-support, grpc-... |
-| protoc-gen-go-wasmjs | github.com/panyam/protoc-gen-go-wasmjs | newstack/protoc-gen-go-wasmjs/main | v0.0.33 | Active | wasm-bindings, typescript-client-gen, four-step-pipeline, composition-bundles... |
-| Galore | galore | newstack/Galore/master | v1.0.6 | Stable | parser-generator, grammar-dsl, parse-table-viz, conflict-detection, semantic-... |
-| gocurrent | github.com/panyam/gocurrent | newstack/gocurrent/main | v0.0.11 | Stable | concurrency-patterns, reader-writer, mapper-reducer, fan-in-fan-out, thread-s... |
-| goutils | github.com/panyam/goutils | newstack/goutils/master | v0.1.13 | Stable | concurrency-utilities, stream-processing, thread-safe-map, batch-reduction, c... |
-| s3gen | github.com/panyam/s3gen | newstack/s3gen/main | v0.1.4 | Stable | static-site-generation, build-pipeline, markdown-to-html, template-rendering,... |
-| templar | github.com/panyam/templar | newstack/templar/main | v0.0.31 | Stable | template-loading, template-includes, template-namespacing, template-inheritan... |
-| tlex | tlex | newstack/tlex/master | v1.0.2 | Stable | lexer-generator, regex-patterns, stateful-lexing, rule-priorities, token-skip... |
+| devloop | github.com/panyam/devloop | newstack/devloop | v0.0.80 | Mature | dev-orchestration, config-driven, glob-triggers, process-lifecycle, grpc-api, mcp-integration,... |
+| MassRelay | github.com/panyam/massrelay | newstack/massrelay | v0.0.4 | Mature | websocket-relay, room-routing, peer-management, collab-protocol, admin-api, security-middleware,... |
+| OneAuth | github.com/panyam/oneauth | newstack/oneauth/main | v0.0.32 | Mature | local-authentication, oauth-integration, jwt-management, federated-auth, session-management,... |
+| ServiceKit | github.com/panyam/servicekit | newstack/servicekit/master | v0.0.4 | Mature | websocket-infrastructure, generic-connection, codec-system, grpc-over-websocket, http-middleware,... |
+| cachewarden | github.com/GM-InnerSource/cachewarden | newstack/cachewarden/main | v0.1.0 | Active | read-through-cache, singleflight, distributed-lock, circuit-breaker, storage-agnostic,... |
+| protokit | github.com/panyam/protokit | newstack/protokit/main | v0.0.1 | Active | name-conversion, field-introspection, message-introspection, package-resolution, path-calculation, wellknown-registry, test-proto-builders |
+| GoAppLib | github.com/panyam/goapplib | newstack/goapplib/main | v0.0.26 | Active | web-app-scaffold, view-context, page-mixins, htmx-support, responsive-ui, border-layout,... |
+| protoc-gen-dal | github.com/panyam/protoc-gen-dal | newstack/protoc-gen-dal/main | v0.0.10 | Active | dal-codegen, sidecar-pattern, type-safe-converters, gorm-target, datastore-target,... |
+| protoc-gen-go-mcp | github.com/redpanda-data/protoc-gen-go-mcp | newstack/protoc-gen-go-mcp | latest | Active | mcp-server-gen, json-schema-gen, tool-registration, annotation-support, grpc-integration,... |
+| protoc-gen-go-wasmjs | github.com/panyam/protoc-gen-go-wasmjs | newstack/protoc-gen-go-wasmjs/main | v0.0.33 | Active | wasm-bindings, typescript-client-gen, four-step-pipeline, composition-bundles, dual-target, invocation-styles, streaming-support,... |
+| Galore | galore | newstack/Galore/master | v1.0.6 | Stable | parser-generator, grammar-dsl, parse-table-viz, conflict-detection, semantic-actions,... |
+| gocurrent | github.com/panyam/gocurrent | newstack/gocurrent/main | v0.0.10 | Stable | concurrency-patterns, reader-writer, mapper-reducer, fan-in-fan-out, thread-safe-map |
+| goutils | github.com/panyam/goutils | newstack/goutils/master | v0.1.10 | Stable | concurrency-utilities, stream-processing, thread-safe-map, batch-reduction, channel-lifecycle |
+| s3gen | github.com/panyam/s3gen | newstack/s3gen/main | v0.1.3 | Stable | static-site-generation, build-pipeline, markdown-to-html, template-rendering, co-located-assets,... |
+| templar | github.com/panyam/templar | newstack/templar/main | v0.0.29 | Stable | template-loading, template-includes, template-namespacing, template-inheritance, tree-shaking,... |
+| tlex | tlex | newstack/tlex/master | v1.0.2 | Stable | lexer-generator, regex-patterns, stateful-lexing, rule-priorities, token-skip,... |
 | tsutils | @panyam/tsutils | newstack/tsutils | v1.0.0 | Basic | typescript-utilities, priority-queues, dual-build |
 
 ## Dependency Graph
@@ -33,9 +34,10 @@ OneAuth ──► goutils
 ServiceKit ──► gocurrent, goutils
 cachewarden (leaf)
 GoAppLib ──► goutils, oneauth, protoc-gen-dal, templar
-protoc-gen-dal (leaf)
+protokit (leaf)
+protoc-gen-dal ──► protokit
 protoc-gen-go-mcp (leaf)
-protoc-gen-go-wasmjs (leaf)
+protoc-gen-go-wasmjs ──► protokit
 Galore ──► tsutils, tlex
 gocurrent (leaf)
 goutils (leaf)
@@ -47,12 +49,12 @@ tsutils (leaf)
 
 ## Topological Update Order
 
-1. **Tier 0 (leaves)**: cachewarden, gocurrent, goutils, protoc-gen-dal, protoc-gen-go-mcp, protoc-gen-go-wasmjs, tsutils
-2. **Tier 1**: devloop, oneauth, servicekit, templar, tlex
+1. **Tier 0 (leaves)**: cachewarden, gocurrent, goutils, protokit, protoc-gen-go-mcp, tsutils
+2. **Tier 1**: devloop, oneauth, protoc-gen-dal, protoc-gen-go-wasmjs, servicekit, templar, tlex
 3. **Tier 2**: galore, goapplib, massrelay, s3gen
 
 ## Capability Tags
 
 ```
-admin-api, admin-endpoints, admin-pages, annotation-driven, annotation-support, api-key-management, auth-integration, auto-port, batch-reduction, build-pipeline, channel-lifecycle, channel-linking, circuit-breaker, co-located-assets, codec-system, collab-protocol, command-reuse, composition-bundles, concurrency-patterns, concurrency-utilities, config-driven, conflict-detection, conformance-tests, connection-lifecycle, connectrpc-integration, cross-platform, csrf-protection, dal-codegen, datastore-target, decorator-support, dependency-visualization, dev-orchestration, distributed-lock, docker-deployment, dual-build, dual-target, e2ee-support, email-verification, env-cascading, expression-parsing, external-sources, fan-in-fan-out, federated-auth, four-step-pipeline, generic-connection, glob-triggers, gorm-target, graceful-shutdown, grammar-dsl, grpc-api, grpc-integration, grpc-over-websocket, htmx-support, http-middleware, json-schema-gen, jwt-management, lexer-generator, live-reload, local-authentication, local-first, log-history, mapper-reducer, markdown-to-html, mcp-integration, mcp-server-gen, mermaid-diagrams, multi-backend-storage, multi-language, multi-loader, oauth-integration, observability, page-mixins, parametric-routes, parse-table-viz, parser-generator, peer-management, priority-queues, process-lifecycle, rate-limiting, read-through-cache, reader-writer, refresh-token-rotation, regex-patterns, responsive-ui, room-routing, rss-generation, rule-priorities, rule-settings, runtime-package, security-middleware, semantic-actions, session-management, sidecar-pattern, singleflight, sitemap-generation, stateful-lexing, static-site-generation, storage-agnostic, stream-processing, structured-logging, template-cli, template-groups, template-includes, template-inheritance, template-loading, template-management, template-namespacing, template-rendering, thread-safe-map, token-buffer, token-skip, tool-registration, transform-rules, tree-shaking, trusted-proxy, type-safe-converters, typescript-client, typescript-client-gen, typescript-utilities, user-identity-model, users-service, view-context, wasm-bindings, web-app-scaffold, websocket-infrastructure, websocket-relay
+admin-api, admin-endpoints, admin-pages, annotation-driven, annotation-support, api-key-management, auth-integration, auto-port, batch-reduction, border-layout, build-pipeline, channel-lifecycle, channel-linking, circuit-breaker, co-located-assets, codec-system, collab-protocol, command-reuse, composition-bundles, concurrency-patterns, concurrency-utilities, config-driven, conflict-detection, conformance-tests, connection-lifecycle, connectrpc-integration, cross-package-imports, cross-platform, csrf-protection, dal-codegen, datastore-target, decorator-support, dependency-visualization, dev-orchestration, distributed-lock, docker-deployment, dual-build, dual-target, e2ee-support, email-verification, env-cascading, expression-parsing, external-sources, fan-in-fan-out, federated-auth, field-introspection, four-step-pipeline, generic-connection, glob-triggers, gorm-target, graceful-shutdown, grammar-dsl, grpc-api, grpc-integration, grpc-over-websocket, htmx-support, http-middleware, invocation-styles, json-schema-gen, jwt-management, lexer-generator, live-reload, llm-workflow-guidance, local-authentication, local-first, log-history, mapper-reducer, markdown-to-html, mcp-integration, mcp-server-gen, mermaid-diagrams, message-introspection, multi-backend-storage, multi-language, multi-loader, name-conversion, oauth-integration, observability, package-resolution, page-mixins, parametric-routes, parse-table-viz, parser-generator, path-calculation, peer-management, priority-queues, process-lifecycle, rate-limiting, read-through-cache, reader-writer, refresh-token-rotation, regex-patterns, responsive-ui, room-routing, rss-generation, rule-priorities, rule-settings, runtime-package, schema-deserialization, security-middleware, semantic-actions, session-management, sidecar-pattern, singleflight, sitemap-generation, stateful-lexing, static-site-generation, storage-agnostic, stream-processing, streaming-support, structured-logging, template-cli, template-groups, template-includes, template-inheritance, template-loading, template-management, template-namespacing, template-rendering, test-proto-builders, thread-safe-map, token-buffer, token-skip, tool-registration, transform-rules, tree-shaking, trusted-proxy, type-safe-converters, typescript-client, typescript-client-gen, typescript-utilities, user-identity-model, users-service, view-context, wasm-bindings, web-app-scaffold, websocket-infrastructure, websocket-relay, wellknown-registry
 ```
