@@ -7,6 +7,8 @@
 - [ ] Seed CONSTRAINTS.md in SDL and excaliframe projects (lilbattle already done)
 
 ## Short Term
+- [ ] Reconcile DESIGN_SKILL_SPEC.md formats with existing CONSTRAINTS/CAPABILITIES conventions (see spec §"File formats" — frontmatter vs. brain's prose `### Rule / **Rule** / **Why** / **Verify**`)
+- [ ] Build MVP /design-rebuild skill per DESIGN_SKILL_SPEC.md (Phase 1: manual trigger, subagent passes 1–3, drift check)
 - [ ] Write CHANGELOG.md for components with recent breaking changes (oneauth, servicekit, goapplib)
 - [ ] Create first migration docs (migrations/ directories) for components with version gaps
 - [ ] Add sub-component entries to goapplib (tsappkit) and massrelay (ts client) CAPABILITIES.md
