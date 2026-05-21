@@ -262,6 +262,7 @@ Each stack component should have:
 - **Components can live anywhere** — no hardcoded root; location is declared per-component
 - **Sub-components supported** — embedded libs (e.g., TS client in a Go repo) declared as sub-entries in parent's CAPABILITIES.md
 - **Token budget**: global CLAUDE.md ~20 tokens (always loaded), catalog ~950 tokens (on discovery), single CAPABILITIES.md ~300 tokens (on match)
+- **Per-folder project understanding** (forthcoming) — `DESIGN_SKILL_SPEC.md` proposes a per-folder DESIGN.md artifact + skill that maintains it; staleness-resistant via scheduled rebuilds and cheap drift detection in `/start_pr`. Not yet implemented; see spec for design and open questions.
 
 ## Requirements
 
