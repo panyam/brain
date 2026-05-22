@@ -34,43 +34,44 @@ Three files per qualifying folder. Each has one clearly-scoped job.
 
 What the language ecosystem expects. Rendered natively by language tooling — `go doc`, `pkg.go.dev`, IDE hover, npm registry, etc. Readers and LLMs find it without knowing about this skill.
 
-**Marker-bounded auto-section.** The skill manages a region of the doc file scoped by paired marker comments:
+**Full skill ownership.** The doc file is rewritten from scratch on every rebuild — no markers, no header line, no "preserve human content" logic. The file's structure for Go is:
 
 ```go
-// Package localauth ...
+// Package localauth provides form-based local username/password authentication.
 //
-// (Hand-written intro / examples / quickstart preserved across rebuilds.)
-//
-// <!-- design:start -->
-// Local, form-based authentication for OneAuth. The package owns the
-// HTTP layer for signup/login/verify/reset and the channel-linking
-// helpers; storage interfaces are received via callback fields on
-// LocalAuth, not embedded.
+// The package owns the HTTP layer for signup/login/verify/reset and the
+// channel-linking helpers; storage interfaces are received via callback fields
+// on LocalAuth, not embedded.
 //
 // ENTITIES
 //
 // LocalAuth — Central config-and-handler object holding all wiring.
-// Deliberately a flat bag of optional fields so apps wire only what
-// they use.
+// Deliberately a flat bag of optional fields so apps wire only what they use.
 //
-// ...
+// LocalAuth.HandleSignup — Registration handler. Username reservation and
+// verification-email failures are warned-not-fatal to avoid leaving
+// half-created accounts.
 //
 // FLOWS
 //
-// See [diagrams.md](diagrams.md) for sequence diagrams of: signup,
-// login, password reset.
-// <!-- design:end -->
+// See [diagrams.md](diagrams.md) for sequence diagrams of: signup, login,
+// password reset.
 package localauth
 ```
 
-Rules:
+**Where each kind of documentation lives:**
 
-- Content **outside** the markers is human-owned: never modified, never reordered by the skill.
-- Content **inside** the markers is fully owned by the skill: rewritten on every Pass 1 invocation that includes this folder.
-- If the doc file has no markers yet, the skill **prepends** the marker block immediately after the first line of the package comment and leaves the rest untouched.
-- If the doc file doesn't exist, the skill creates it with a minimal skeleton (one-line summary + marker block).
+| Kind of documentation | Where it lives | Owned by |
+|---|---|---|
+| Symbol-level godoc (types, funcs, methods) | The `.go` file containing the symbol | Human / agent (co-located with code) |
+| Examples | `<pkg>_test.go` via `ExampleXxx` functions | Human / agent (idiomatic Go) |
+| Package-level prose (intro + entity catalog + flow links) | `doc.go` | `/design-rebuild-go` skill (full file) |
 
-The marker convention `<!-- design:start --> ... <!-- design:end -->` mirrors brain's existing `stack-brain emit` pattern (`<!-- stack-brain:start/end -->`), so it's a familiar shape to readers.
+The split exists because doc.go and source files have fundamentally different ownership boundaries. Source files contain code humans/agents wrote; the godoc comments next to each symbol live with the code's semantics and get reviewed alongside it in PRs. `doc.go` has no code — its only job is package-level prose — so the skill commandeering it cleanly is a net win.
+
+**Why no markers.** An earlier iteration used `<!-- design:start --> ... <!-- design:end -->` HTML comments to scope the auto-section inside a shared doc.go. That leaked as visible literal text on pkgsite/pkg.go.dev (which doesn't filter HTML comments). Full file ownership eliminates the boundary entirely — nothing to mark, nothing to leak.
+
+**First-run protection.** If a folder has an existing `doc.go` but no `.design.yaml` yet (i.e., this is the first time the skill has touched this folder), the skill prompts before overwriting. After the first successful rebuild, `.design.yaml` exists and signals "this folder is skill-managed" — subsequent runs overwrite freely.
 
 ### 2. `diagrams.md` (per-folder, optional)
 
@@ -123,7 +124,7 @@ repo/
 ├── CONSTRAINTS.md           (top-level; cross-folder rules; qualified entity refs)
 ├── CAPABILITIES.md          (optional; top-level; cross-folder capabilities)
 ├── pkg-a/
-│   ├── doc.go               ← language-native doc, marker-managed
+│   ├── doc.go               ← language-native doc, full skill ownership
 │   ├── diagrams.md          ← Mermaid (only if flows exist)
 │   ├── .design.yaml         ← machine-readable sidecar
 │   ├── CONSTRAINTS.md       (optional; local rules; bare entity refs)
@@ -192,7 +193,7 @@ orchestrator:
   for folder in rebuild_set in parallel:
     spawn subagent that reads ONLY <folder>'s source
     subagent writes: <doc-file>, .design.yaml, optionally diagrams.md
-    subagent must respect markers in pre-existing <doc-file>
+    subagent rewrites <doc-file> from scratch (full ownership)
 
   # Pass 2: cross-folder linking (parallel subagents)
   pass_2_set = rebuild_set ∪ { f : prior_depends_on(f) ∩ rebuild_set ≠ ∅ }
@@ -305,7 +306,7 @@ Auto-load `.design.yaml` files for the folders the planning task touches. Plan o
 - **`/start_pr` integration** (Phase 2) — wire `/design-drift-check` into `/start_pr` so touched folders surface drift before planning.
 - **`/schedule` integration** (Phase 2) — nightly routine for active repos.
 - **Bootstrap mode** for existing `CONSTRAINTS.md` files (Phase 1.5).
-- **`/design-rebuild-ts`** (Phase 1.5) — second language. Writes/updates a per-package `README.md` with marker-managed auto-section, links to `diagrams.md`, writes `.design.yaml` with `language: ts`.
+- **`/design-rebuild-ts`** (Phase 1.5) — second language. Per-package `README.md` ownership model TBD: full ownership like Go's doc.go is cleanest, but a hand-written `README.md` is more common in TS than a hand-written `doc.go` is in Go, so a delineated convention may be needed. Decide during Phase 1.5 design. Links to `diagrams.md`; writes `.design.yaml` with `language: ts`.
 - **Promote/demote auto-suggest** (Phase 3) — scan constraint files; surface rules whose entity refs all resolve to one folder ("consider demoting") or that grep-match across folders ("consider promoting").
 - **pkg.go.dev / npm URL enrichment** in MAP.md — link to the public registry for each folder, in addition to the local doc file.
 - **Polyglot folders** with multiple languages — MVP assumes one language per folder; cross-language folders deferred.

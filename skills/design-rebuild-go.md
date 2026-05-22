@@ -1,6 +1,6 @@
-Rebuild per-package Go documentation: writes `doc.go` (with auto-section bounded by markers), `diagrams.md` (Mermaid sequence diagrams for multi-step flows), and `.design.yaml` (machine-readable metadata) for each Go package in the repo. Idempotent and skip-if-fresh by default; `--force` regenerates regardless.
+Rebuild per-package Go documentation: writes `doc.go` (full skill ownership — rewritten from scratch each rebuild), `diagrams.md` (Mermaid sequence diagrams for multi-step flows), and `.design.yaml` (machine-readable metadata) for each Go package in the repo. Idempotent and skip-if-fresh by default; `--force` regenerates regardless.
 
-See `~/newstack/brain/DESIGN_SKILL_SPEC.md` for the system-level spec — the `.design.yaml` schema, the marker injection convention, and why the responsibility is split across three files.
+See `~/newstack/brain/DESIGN_SKILL_SPEC.md` for the system-level spec — the `.design.yaml` schema, the "where each kind of doc lives" convention, and why responsibility is split across three files.
 
 ## When to use
 
@@ -13,7 +13,7 @@ See `~/newstack/brain/DESIGN_SKILL_SPEC.md` for the system-level spec — the `.
 
 - **Full rebuild** (no args, run at repo root): walk every qualifying Go package. **Skip-if-fresh by default** — packages whose `last_rebuilt` SHA is still in HEAD's history and have had no file changes since are left untouched.
 - **Targeted** (`--folder <path>`): one Go package; skip-if-fresh still applies. Does not re-walk the depends_on chain; if a neighbor is also stale, run `/design-drift-check` and rebuild it separately.
-- **`--force`**: regenerate every candidate package regardless of freshness. Use when prose came out shallow on a prior run, or you want to revert hand-edits inside the marker block and start from a clean LLM pass.
+- **`--force`**: regenerate every candidate package regardless of freshness. Use when prose came out shallow on a prior run, or you want a clean LLM pass.
 
 After a successful run, the user should run `/design-map` to refresh top-level `MAP.md` — it's a separate skill so its concerns stay isolated.
 
@@ -37,7 +37,7 @@ If a folder is borderline, ask the user before generating artifacts. Less is mor
 
 Each qualifying package gets:
 
-1. **`doc.go`** — package documentation. The skill manages a marker-bounded auto-section. Hand-written content (examples, quickstart, narrative) outside the markers is **preserved verbatim** across rebuilds.
+1. **`doc.go`** — package-level prose, **full skill ownership**. Rewritten from scratch on every rebuild — no markers, no header line, no "preserve human content" logic. Symbol-level godoc lives on its symbols in other source files; examples live in `*_test.go` as idiomatic Go `ExampleXxx` functions; this file is package-level prose only and is fully managed by this skill. First-run protection (Pass 0.5) prompts before overwriting a pre-existing `doc.go` in a folder that has no `.design.yaml` yet.
 
 2. **`diagrams.md`** — only if multi-step flows worth diagramming exist. Mermaid `sequenceDiagram` blocks (or `flowchart` for decision trees). `###` headings serve as anchors so `doc.go` can link `[Signup flow](diagrams.md#signup)`. If no flows qualify, the file is not created.
 
@@ -81,6 +81,30 @@ done
 
 Output: `rebuild_set` (proceed to Pass 1) and `fresh_set` (left untouched).
 
+**First-run protection** (runs as the final step of Pass 0.5, only over `rebuild_set`):
+
+```bash
+for folder in rebuild_set; do
+  sidecar="$folder/.design.yaml"
+  existing_doc="$folder/doc.go"
+
+  # If a doc.go already exists but the folder has no .design.yaml yet, it might
+  # be a hand-written file from before adoption — or a marker-era file from
+  # before this bug fix. Either way, prompt before overwriting.
+  if [ -f "$existing_doc" ] && [ ! -f "$sidecar" ]; then
+    echo "FIRST RUN: $folder/doc.go exists but $folder/.design.yaml does not."
+    echo "  Overwriting will replace the file's contents entirely."
+    echo "  (Skill assumes pre-existing doc.go was either marker-era from prior runs"
+    echo "   or hand-written. After this run, .design.yaml signals 'managed' and"
+    echo "   subsequent rebuilds overwrite confidently without prompting.)"
+    read -p "  Overwrite $folder/doc.go? (yes / skip) " answer
+    [ "$answer" = "skip" ] && remove_from_rebuild_set "$folder" && add_to_skip_set "$folder"
+  fi
+done
+```
+
+After the first successful rebuild, `.design.yaml` is present and signals "this folder is skill-managed" — subsequent runs skip the prompt and overwrite `doc.go` freely.
+
 ### Pass 1 — per-package generation (parallel subagents)
 
 For each candidate Go package in `rebuild_set`, spawn one `Agent` with `subagent_type=general-purpose` and the following prompt:
@@ -120,51 +144,39 @@ For each candidate Go package in `rebuild_set`, spawn one `Agent` with `subagent
 >
 > ---
 >
-> **(2) `doc.go`** — package documentation, marker-managed:
->
-> If `doc.go` does NOT exist, create it with this skeleton:
+> **(2) `doc.go`** — package documentation, **full skill ownership**. Write from scratch using this exact structure (no markers, no header line, no "generated by" comment):
 >
 > ```go
 > // Package <name> <one-sentence purpose>.
 > //
-> // <!-- design:start -->
-> // <auto-generated body — see format below>
-> // <!-- design:end -->
+> // <one paragraph: what the package owns, what it doesn't, what's notable about
+> // its shape>
+> //
+> // ENTITIES
+> //
+> // <EntityName> — <role>. <why>.
+> //
+> // <EntityName.Method> — <role>. <why>.
+> //
+> // <...more entities>
+> //
+> // FLOWS
+> //
+> // See [diagrams.md](diagrams.md) for sequence diagrams of: <comma-separated flow names>.
 > package <name>
 > ```
 >
-> If `doc.go` EXISTS, find the `<!-- design:start -->` and `<!-- design:end -->` marker comment lines. **Replace only the content between them**; preserve everything else verbatim. If the markers don't exist, **prepend** the marker block immediately after the first line of the package comment and leave the rest untouched. NEVER delete or reorder pre-existing human content.
+> Format rules:
 >
-> Auto-generated body format (each line a Go comment: `// `-prefixed):
->
-> - **One paragraph** describing the package: what it owns, what it doesn't, what's notable about its shape.
-> - **Entities section.** Flat list, not a markdown table (pkg.go.dev does not render tables). Format:
->
->   ```
->   ENTITIES
->
->   LocalAuth — Central config-and-handler object holding all wiring. Deliberately
->   a flat bag of optional fields so apps wire only what they use.
->
->   LocalAuth.HandleSignup — Registration handler. Username reservation and
->   verification-email failures are warned-not-fatal to avoid leaving half-created
->   accounts.
->   ```
->
->   The ALL-CAPS line at start of paragraph becomes a Go-doc heading.
-> - **Flows section** — only if `diagrams.md` was written:
->
->   ```
->   FLOWS
->
->   See [diagrams.md](diagrams.md) for sequence diagrams of: signup, login,
->   password reset.
->   ```
->
->   pkg.go.dev renders inline markdown links — the reader clicks through to GitHub-rendered Mermaid.
-> - **Wrap lines at ~80 columns.** Idiomatic Go-doc convention. gofmt does not touch comments but readability matters.
+> - **Each line a Go comment** (`// `-prefixed). The whole comment block must be immediately adjacent to `package <name>` (no blank line between them) so godoc treats it as the package comment.
+> - **ALL-CAPS section heading** (`ENTITIES`, `FLOWS`) on its own line surrounded by blank-comment lines — godoc renders these as headings on pkg.go.dev.
+> - **Entity entries**: `EntityName — role. why.` Each entity in its own paragraph (separated by `//` blank-comment line). Methods qualified with the receiver type (`LocalAuth.HandleSignup`).
+> - **Wrap lines at ~80 columns.** gofmt does not touch comments but readability matters.
+> - **Omit the FLOWS section entirely** if `diagrams.md` was not written for this folder.
 > - **NO markdown tables** (pkg.go.dev does not render them).
 > - **NO Mermaid in doc.go** (lives in diagrams.md; doc.go only links).
+> - **NO HTML comments** (`<!-- ... -->` renders as literal text on pkgsite — the bug this design eliminates). Never emit any HTML-comment syntax in this file.
+> - **NO "generated by" header line.** doc.go is recognized as skill-managed by the presence of `.design.yaml` in the same folder, not by an in-file marker. First-run protection in Pass 0.5 handles the adoption case.
 >
 > ---
 >
@@ -271,8 +283,9 @@ folder where the new artifacts now exist. This skill never auto-deletes legacy f
 
 - One package per subagent. Orchestrator never reads `.go` code. Subagents must not read across folder boundaries during Pass 1.
 - All `.design.yaml` files in a single rebuild share one `last_rebuilt` SHA. Drift detection depends on the consistency.
-- **Re-runs are no-ops on unchanged packages.** Skip-if-fresh is the default; `--force` regenerates. Critical for nightly schedules and for preserving hand-written content in `doc.go` outside the markers.
-- **Marker preservation is sacred.** Content outside `<!-- design:start --> ... <!-- design:end -->` in `doc.go` is human-owned — never modified, never reordered. Pressure-test this on pre-existing `doc.go` files before trusting the skill.
+- **Re-runs are no-ops on unchanged packages.** Skip-if-fresh is the default; `--force` regenerates. Critical for nightly schedules.
+- **`doc.go` is fully skill-owned.** Rewritten from scratch each rebuild. No markers, no header line, no preservation logic. Symbol-level godoc lives on its symbols in other source files; package examples in `*_test.go` via `ExampleXxx`; package-level prose in `doc.go`. First-run protection (Pass 0.5) prompts before overwriting a pre-existing `doc.go` in a folder that has no `.design.yaml` yet; after that, `.design.yaml` is the "managed" signal and overwrites are silent.
+- **No HTML comments anywhere in `doc.go`.** `<!-- ... -->` renders as literal text on pkgsite/pkg.go.dev — that's the bug this design eliminates. Never emit HTML-comment syntax in `doc.go`.
 - Never auto-commit. Never auto-branch. **Never auto-delete legacy `DESIGN.md` files** during migration — user reviews and `git rm` themselves.
 - Never auto-add `**Entities**:` lines to existing `CONSTRAINTS.md` / `CAPABILITIES.md` rules — humans declare bindings.
 - This skill does not generate MAP.md. That's `/design-map`'s job; this skill only nudges the user to run it when rebuilds happened.

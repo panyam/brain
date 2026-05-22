@@ -7,12 +7,14 @@
 - [ ] Seed CONSTRAINTS.md in SDL and excaliframe projects (lilbattle already done)
 
 ## Short Term
-- [ ] Validate /design-rebuild-go end-to-end on oneauth (full migration from legacy DESIGN.md): run with --force, review three artifacts per folder, `git rm` legacy DESIGN.md files
-- [ ] Build /design-rebuild-ts (Phase 1.5) — TS-specific skill writing README.md + diagrams.md + .design.yaml
+- [ ] Migrate marker-era doc.go files in oneauth: `find . -name doc.go -exec grep -l 'design:start' {} \;` to identify, then `git rm` those files (and any other folders whose generated doc.go has `<!--` leakage) and re-run `/design-rebuild-go --force`. The skill now writes doc.go from scratch without markers; `.design.yaml` from prior rebuild remains valid.
+- [ ] Validate /design-rebuild-go end-to-end on oneauth post-migration: no `<!--` in any generated doc.go; pkgsite (localhost:6060) renders package pages cleanly.
 - [ ] Wire /design-drift-check into /start_pr for touched folders (Phase 2)
+- [ ] Wire design-freshness reporting into /checkpoint (Phase 2)
 - [ ] /schedule registration for nightly /design-rebuild-<lang> on active repos (Phase 2)
+- [ ] Build /design-rebuild-ts (Phase 1.5) — TS-specific skill writing README.md + diagrams.md + .design.yaml. Decide README.md ownership model during design (full ownership vs delineated section).
 - [ ] Bootstrap mode: enrich existing CONSTRAINTS.md files in the wild with `**Entities**:` lines (Phase 1.5)
-- [ ] Marker-preservation pressure test: validate /design-rebuild-go correctly preserves hand-written doc.go content outside `<!-- design:start/end -->` on pre-existing doc.go files
+- [ ] /design-audit-symbols (Phase 3, possibly): passive checker for missing/shallow godoc on exported symbols in source files — surface, do not write. Land only if real signal emerges.
 - [ ] Write CHANGELOG.md for components with recent breaking changes (oneauth, servicekit, goapplib)
 - [ ] Create first migration docs (migrations/ directories) for components with version gaps
 - [ ] Add sub-component entries to goapplib (tsappkit) and massrelay (ts client) CAPABILITIES.md
