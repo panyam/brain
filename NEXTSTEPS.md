@@ -7,10 +7,12 @@
 - [ ] Seed CONSTRAINTS.md in SDL and excaliframe projects (lilbattle already done)
 
 ## Short Term
-- [ ] Validate /design-rebuild + /design-drift-check end-to-end on a real repo (demokit/notebook as first test bed)
+- [ ] Validate /design-rebuild-go end-to-end on oneauth (full migration from legacy DESIGN.md): run with --force, review three artifacts per folder, `git rm` legacy DESIGN.md files
+- [ ] Build /design-rebuild-ts (Phase 1.5) — TS-specific skill writing README.md + diagrams.md + .design.yaml
 - [ ] Wire /design-drift-check into /start_pr for touched folders (Phase 2)
-- [ ] /schedule registration for nightly /design-rebuild on active repos (Phase 2)
+- [ ] /schedule registration for nightly /design-rebuild-<lang> on active repos (Phase 2)
 - [ ] Bootstrap mode: enrich existing CONSTRAINTS.md files in the wild with `**Entities**:` lines (Phase 1.5)
+- [ ] Marker-preservation pressure test: validate /design-rebuild-go correctly preserves hand-written doc.go content outside `<!-- design:start/end -->` on pre-existing doc.go files
 - [ ] Write CHANGELOG.md for components with recent breaking changes (oneauth, servicekit, goapplib)
 - [ ] Create first migration docs (migrations/ directories) for components with version gaps
 - [ ] Add sub-component entries to goapplib (tsappkit) and massrelay (ts client) CAPABILITIES.md

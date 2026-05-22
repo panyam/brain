@@ -1,40 +1,40 @@
-Check whether per-folder DESIGN.md files are stale relative to HEAD. Pure git, no LLM judgment. Use standalone, or as a cheap subroutine from `/start_pr` / `/checkpoint`.
+Check whether per-folder `.design.yaml` sidecars are stale relative to HEAD. Pure git, no LLM judgment, language-agnostic (the sidecar schema is the same regardless of which `/design-rebuild-<lang>` skill wrote it). Use standalone, or as a cheap subroutine from `/start_pr` / `/checkpoint`.
 
 See `~/newstack/brain/DESIGN_SKILL_SPEC.md` §"Drift check" for the design rationale.
 
 ## When to use
 
-- From `/start_pr`: which folders touched by this PR have a stale DESIGN.md?
-- Standalone: spot-check before deciding whether to run `/design-rebuild`.
+- From `/start_pr`: which folders touched by this PR have a stale `.design.yaml`?
+- Standalone: spot-check before deciding whether to run a `/design-rebuild-<lang>`.
 - Before `/checkpoint`: surface folders the next rebuild should hit.
 
 ## Modes
 
 - `--folder <path>`: check one folder.
 - `--touched`: derive folders from the current working-tree diff (`git diff --name-only` against `origin/main`, or `HEAD~1` if no upstream).
-- No args: check every folder in the repo that has a DESIGN.md.
+- No args: check every folder in the repo that has a `.design.yaml`.
 
 ## Algorithm
 
 For each candidate folder `F`:
 
 ```bash
-design="$F/DESIGN.md"
+sidecar="$F/.design.yaml"
 
-if [ ! -f "$design" ]; then
-  echo "$F: NO MODEL — no DESIGN.md"
+if [ ! -f "$sidecar" ]; then
+  echo "$F: NO MODEL — no .design.yaml"
   continue
 fi
 
-# Frontmatter extraction: prefer yq if available, fall back to sed.
+# YAML extraction: prefer yq if available, fall back to grep.
 if command -v yq >/dev/null 2>&1; then
-  last=$(yq '.last_rebuilt' "$design" 2>/dev/null)
+  last=$(yq '.last_rebuilt' "$sidecar" 2>/dev/null)
 else
-  last=$(sed -n '/^---$/,/^---$/p' "$design" | grep '^last_rebuilt:' | head -1 | awk '{print $2}')
+  last=$(grep '^last_rebuilt:' "$sidecar" | head -1 | awk '{print $2}')
 fi
 
 if [ -z "$last" ] || [ "$last" = "null" ]; then
-  echo "$F: NO ANCHOR — DESIGN.md has no last_rebuilt SHA"
+  echo "$F: NO ANCHOR — .design.yaml has no last_rebuilt SHA"
   continue
 fi
 
@@ -55,22 +55,23 @@ fi
 ## Output
 
 One line per folder. Suggested status vocabulary:
-- `fresh (<sha>)` — last_rebuilt is HEAD's ancestor and nothing in the folder changed since.
+- `fresh (<sha>)` — `last_rebuilt` is HEAD's ancestor and nothing in the folder changed since.
 - `DRIFT — ...` — something changed; rebuild is recommended.
-- `NO MODEL` — no DESIGN.md (might be a pass-through folder, or never rebuilt).
-- `NO ANCHOR` — DESIGN.md exists but frontmatter has no `last_rebuilt`. Treat as drift; rerun `/design-rebuild`.
+- `NO MODEL` — no `.design.yaml` (might be a pass-through folder, or never rebuilt).
+- `NO ANCHOR` — `.design.yaml` exists but has no `last_rebuilt`. Treat as drift; rerun the appropriate `/design-rebuild-<lang>`.
 
 Exit code: `0` if all folders are fresh or have NO MODEL; `1` if any DRIFT or NO ANCHOR was detected. Other skills can `if /design-drift-check --touched; then ...; fi`.
 
 End with one practical line:
 
 ```
-Drift detected in K folder(s). Run /design-rebuild --folder <path> for targeted rebuilds, or /design-rebuild for a full pass.
+Drift detected in K folder(s). Run /design-rebuild-<lang> --folder <path> for targeted rebuilds, or /design-rebuild-<lang> for a full pass.
 ```
 
 ## Principles
 
 - Git-only. No reading source files, no LLM calls. This skill is meant to be cheap enough to run on every PR.
-- Report; do not act. The decision to rebuild belongs to the user (or to `/design-rebuild` when explicitly invoked).
-- Frontmatter SHA is the only freshness signal. If it falls out of history (force-push, squash), report DRIFT and let `/design-rebuild` re-anchor it.
-- NO MODEL is not an error. A folder may legitimately not have a DESIGN.md (pass-through, fixtures, generated). Don't pressure-create them.
+- **Language-agnostic.** The `.design.yaml` schema is the same regardless of who wrote it; this skill never needs to know whether the folder is Go, TS, Rust, etc.
+- Report; do not act. The decision to rebuild belongs to the user (or to a `/design-rebuild-<lang>` skill when explicitly invoked).
+- The `last_rebuilt` SHA is the only freshness signal. If it falls out of history (force-push, squash), report DRIFT and let the appropriate `/design-rebuild-<lang>` re-anchor it.
+- NO MODEL is not an error. A folder may legitimately not have a `.design.yaml` (pass-through, fixtures, generated). Don't pressure-create them.
