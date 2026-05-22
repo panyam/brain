@@ -76,37 +76,42 @@ Free-form prose. Use this section for narrative that doesn't fit cleanly into en
 
 ### `pkg/CONSTRAINTS.md` (per-folder; entity refs are bare)
 
-```markdown
----
-constraints:
-  - id: NB-C-001
-    entities: [Notebook, store]
-    rule: store mutations only via Notebook CRUD methods — never reach into store from outside the package
-    verify: "! grep -rE 'notebook\\.(store|cells)' --include='*.go' | grep -v 'notebook/'"
-  - id: NB-C-002
-    entities: [Stream, outputBuffered]
-    rule: Stream MUST return io.Discard (never nil) for missing cells or cells that don't implement outputBuffered
-    verify: "grep -A5 'func.*Stream.*io.Writer' notebook/stream.go | grep -q io.Discard"
----
+Keeps brain's existing prose format (`### Rule Name / **Rule** / **Why** / **Verify** / **Scope**`) and **adds an optional `**Entities**:` line** per rule that names the DESIGN.md entities the rule binds to. The `**Entities**:` line is the only new field — existing CONSTRAINTS.md files continue to work untouched, and the binding is opt-in per rule.
 
+```markdown
 # Constraints — notebook
 
-Prose elaboration if needed.
+### Store mutations via CRUD only
+**Rule**: store mutations only via Notebook CRUD methods — never reach into the store from outside the package
+**Why**: the single-mutex invariant requires all writers to go through Notebook; direct access bypasses lock ordering and risks tearing reads in the BT goroutine
+**Verify**: `! grep -rE 'notebook\.(store|cells)' --include='*.go' | grep -v 'notebook/'`
+**Scope**: notebook package
+**Entities**: Notebook, store
+
+### Stream returns io.Discard, never nil
+**Rule**: Stream MUST return io.Discard (never nil) for missing cells or cells that don't implement outputBuffered
+**Why**: callers never have to nil-check; mid-flight Remove silently drops chunks instead of panicking
+**Verify**: `grep -A5 'func.*Stream.*io.Writer' notebook/stream.go | grep -q io.Discard`
+**Scope**: notebook/stream.go
+**Entities**: Stream, outputBuffered
 ```
 
 ### Top-level `CONSTRAINTS.md` (entity refs are qualified)
 
+Same prose format; `**Entities**:` entries use `folder/Entity` form since they cross folder boundaries.
+
 ```markdown
----
-constraints:
-  - id: TOP-C-001
-    entities: [notebook/Notebook, events/Emit]
-    rule: Notebook may emit via events.Emit but MUST NOT import internal event types directly
-    verify: "! grep -E 'events\\.(internal|event[A-Z])' notebook/*.go"
----
+# Constraints
+
+### Notebook events isolation
+**Rule**: Notebook may emit via events.Emit but MUST NOT import internal event types directly
+**Why**: keeps the events package's internal types unexposed; emit is the public contract
+**Verify**: `! grep -E 'events\.(internal|event[A-Z])' notebook/*.go`
+**Scope**: cross-folder (notebook → events)
+**Entities**: notebook/Notebook, events/Emit
 ```
 
-`CAPABILITIES.md` mirrors this structure with `capabilities:` instead of `constraints:` and a positive phrasing (`role:` / `provides:`).
+`CAPABILITIES.md` mirrors this structure with a positive framing — `**Provides**` and `**Used by**` lines in addition to the standard sections — and the same optional `**Entities**:` binding.
 
 ## Algorithms
 
@@ -174,20 +179,20 @@ Policy when drift is detected:
 - Touched folder (PR modifies files in it): trigger targeted rebuild subagent before generating the plan/reviewer guide.
 - Untouched folder: warn-and-proceed; let the next scheduled rebuild handle it.
 
-### Bootstrap (one-time migration of existing CONSTRAINTS/CAPABILITIES)
+### Bootstrap (one-time enrichment of existing CONSTRAINTS/CAPABILITIES)
 
-Existing CONSTRAINTS.md files have prose rules with no structured `entities:` field. Bootstrap:
+Existing CONSTRAINTS.md files use the prose format but have no `**Entities**:` line yet. Bootstrap **augments** them in place — no format conversion, just an additive enrichment:
 
 ```
 for each existing CONSTRAINTS.md or CAPABILITIES.md:
-  for each rule (parsed from current bullet/heading format):
-    candidates = grep matching entity names from DESIGN.md against rule text
-    write structured entry with entities: [candidates], rule: <prose>
-    mark with `bootstrap_review: true` so the human knows to confirm
-emit a report listing all bootstrap_review entries for human pass
+  for each rule heading (### Rule Name):
+    candidates = grep matching entity names from sibling DESIGN.md against the rule prose
+    propose adding `**Entities**: <candidates>` under the existing **Verify** / **Scope** lines
+    flag the proposal with a marker comment (`<!-- bootstrap_review -->`) so the human knows to confirm
+emit a report listing all proposed additions; do not auto-apply
 ```
 
-After human review removes `bootstrap_review: true` flags, the binding is explicit and self-policing thereafter.
+After human review removes the marker comments and accepts/edits the entity list, the binding is explicit and self-policing thereafter. The rule body, format, and rest of the file are untouched.
 
 ## Triggers
 
