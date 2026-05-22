@@ -7,8 +7,10 @@
 - [ ] Seed CONSTRAINTS.md in SDL and excaliframe projects (lilbattle already done)
 
 ## Short Term
-- [ ] Reconcile DESIGN_SKILL_SPEC.md formats with existing CONSTRAINTS/CAPABILITIES conventions (see spec §"File formats" — frontmatter vs. brain's prose `### Rule / **Rule** / **Why** / **Verify**`)
-- [ ] Build MVP /design-rebuild skill per DESIGN_SKILL_SPEC.md (Phase 1: manual trigger, subagent passes 1–3, drift check)
+- [ ] Validate /design-rebuild + /design-drift-check end-to-end on a real repo (demokit/notebook as first test bed)
+- [ ] Wire /design-drift-check into /start_pr for touched folders (Phase 2)
+- [ ] /schedule registration for nightly /design-rebuild on active repos (Phase 2)
+- [ ] Bootstrap mode: enrich existing CONSTRAINTS.md files in the wild with `**Entities**:` lines (Phase 1.5)
 - [ ] Write CHANGELOG.md for components with recent breaking changes (oneauth, servicekit, goapplib)
 - [ ] Create first migration docs (migrations/ directories) for components with version gaps
 - [ ] Add sub-component entries to goapplib (tsappkit) and massrelay (ts client) CAPABILITIES.md
