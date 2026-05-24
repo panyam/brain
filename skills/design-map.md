@@ -1,12 +1,12 @@
-Generate or refresh `MAP.md` at the repo root — a one-page tour of every per-folder `.design.yaml` in the repo, with a suggested reading order and links to each folder's language-native doc file. Pure collation from existing sidecars; no LLM judgment, no reading of source files. Deterministic and idempotent given unchanged inputs. Language-agnostic — the sidecar schema is the same regardless of which `/design-rebuild-<lang>` skill wrote it.
+Generate or refresh `MAP.md` at the repo root — a one-page tour of every per-folder `.design.yaml` in the repo, with a suggested reading order and links to each folder's `DESIGN.md`. Pure collation from existing sidecars; no LLM judgment, no reading of source files. Deterministic and idempotent given unchanged inputs. Language-agnostic — the sidecar schema is the same regardless of which language the folder is in.
 
-Run after `/design-rebuild-<lang>` whenever any folder was rebuilt, or any time MAP.md feels stale. Designed to be cheap enough to run frequently.
+Run after `/design-rebuild` whenever any folder was rebuilt, or any time MAP.md feels stale. Designed to be cheap enough to run frequently.
 
 See `~/newstack/brain/DESIGN_SKILL_SPEC.md` for the system-level context.
 
 ## When to use
 
-- After a `/design-rebuild-<lang>` reports any folder was rebuilt — the new shape needs to land in MAP.md.
+- After `/design-rebuild` reports any folder was rebuilt — the new shape needs to land in MAP.md.
 - Standalone, when onboarding a reader to the repo or refreshing your own mental model.
 - Any time. It's cheap. Re-runs against unchanged sidecars produce a byte-identical MAP.md.
 
@@ -23,17 +23,15 @@ There is no targeted mode — `MAP.md` is a whole-repo artifact; partial maps wo
 2. **Parse.** For each, extract:
    - `package` (folder identity)
    - `purpose` (one-line summary)
-   - `language` (e.g. `go`, `ts` — informational, also used for "Languages" stat in the summary)
-   - `doc_file` (the language-native doc artifact the folder name should link to; e.g. `doc.go` for Go)
-   - `diagrams_file` (optional; if present, an extra "diagrams" link is rendered next to the folder)
+   - `language` (e.g. `go`, `ts` — used for the "Languages" stat line)
    - `depends_on:` entries that point at sibling folders in this repo (external paths like `github.com/...` are noted but not part of the internal graph)
 3. **Build graph.** Nodes = folders that have a `.design.yaml`. Edges = internal `depends_on` entries.
 4. **Topological sort** for the reading order:
    - Roots (in-degree zero) come first — these are the entry points for a cold reader.
    - Then folders one hop out, then two, and so on.
-   - **Cycles:** if a cycle exists, choose a stable arbitrary order for its members (e.g., alphabetical by folder path) and report the cycle in a dedicated section so the reader knows the order is partial there.
-5. **Render** `MAP.md` with the sections described below. Folder names in the reading-order list and the All-packages table MUST be rendered as markdown links pointing to **that folder's `doc_file`** (`` [`foo/`](foo/doc.go) ``) so the reader can click through to the language-native package doc. If `diagrams_file` is set, append a second link `· [diagrams](foo/diagrams.md)` next to the folder. The dependency graph stays in a code block (code blocks don't render links).
-6. **Write** `MAP.md` at the repo root (overwriting). Never touch any `.design.yaml`, `doc.go`, or `diagrams.md`.
+   - **Cycles:** if a cycle exists, choose a stable arbitrary order for its members (alphabetical by folder path) and report the cycle in a dedicated section so the reader knows the order is partial there.
+5. **Render** `MAP.md` with the sections described below. Folder names in the reading-order list and the All-packages table MUST be rendered as markdown links pointing to **that folder's `DESIGN.md`** (`` [`foo/`](foo/DESIGN.md) ``) so the reader can click through. The dependency graph stays in a code block (code blocks don't render links).
+6. **Write** `MAP.md` at the repo root (overwriting). Never touch any `.design.yaml` or `DESIGN.md`.
 
 ## Output (MAP.md format)
 
@@ -46,21 +44,21 @@ Languages: go (N folders), ts (M folders).
 
 ## Suggested reading order
 
-Roots first; folders that depend on others appear after their dependencies. Each folder name links to that folder's language-native doc file; the `diagrams` link (if present) opens the per-package Mermaid diagrams.
+Roots first; folders that depend on others appear after their dependencies. Each folder name links to that folder's DESIGN.md.
 
-1. [`events/`](events/doc.go) — internal event bus; emit + subscribe primitives
-2. [`state/`](state/doc.go) — viewport, focus, and per-step mutable state
-3. [`notebook/`](notebook/doc.go) · [diagrams](notebook/diagrams.md) — cell-based TUI; CRUD safe from any goroutine
-4. [`graph/`](graph/doc.go) — directed-graph runner with MaxSteps/MaxVisits guardrails
+1. [`events/`](events/DESIGN.md) — internal event bus; emit + subscribe primitives
+2. [`state/`](state/DESIGN.md) — viewport, focus, and per-step mutable state
+3. [`notebook/`](notebook/DESIGN.md) — cell-based TUI; CRUD safe from any goroutine
+4. [`graph/`](graph/DESIGN.md) — directed-graph runner with MaxSteps/MaxVisits guardrails
 ...
 
 ## All packages
 
 | Folder | Lang | Purpose |
 |---|---|---|
-| [`events/`](events/doc.go) | go | internal event bus; emit + subscribe primitives |
-| [`state/`](state/doc.go) | go | viewport, focus, and per-step mutable state |
-| [`notebook/`](notebook/doc.go) · [diagrams](notebook/diagrams.md) | go | cell-based TUI; CRUD safe from any goroutine |
+| [`events/`](events/DESIGN.md) | go | internal event bus; emit + subscribe primitives |
+| [`state/`](state/DESIGN.md) | go | viewport, focus, and per-step mutable state |
+| [`notebook/`](notebook/DESIGN.md) | go | cell-based TUI; CRUD safe from any goroutine |
 | ... | ... | ... |
 
 ## Dependency graph
@@ -76,7 +74,7 @@ tui/       → notebook/, graph/
 ## Cycles
 
 (only emitted if any exist; otherwise omit this section)
-- [`foo/`](foo/doc.go) ↔ [`bar/`](bar/doc.go) — cyclic. Reading order for these is alphabetical and partial.
+- [`foo/`](foo/DESIGN.md) ↔ [`bar/`](bar/DESIGN.md) — cyclic. Reading order for these is alphabetical and partial.
 ```
 
 End the skill with a one-line summary:
@@ -89,10 +87,10 @@ If `--print` was passed, print the content to stdout and end with `Printed MAP.m
 
 ## Principles
 
-- **Pure collation.** No LLM judgment on folder content. Everything in `MAP.md` comes verbatim (or near-verbatim) from `.design.yaml` sidecars. If the underlying purpose is shallow, `MAP.md` will be shallow — fix it at the source, not here.
+- **Pure collation.** No LLM judgment on folder content. Everything in `MAP.md` comes from `.design.yaml` sidecars. If the underlying purpose is shallow, `MAP.md` will be shallow — fix it at the source, not here.
 - **Language-agnostic.** The sidecar schema is the same regardless of language; this skill never branches on language except to populate the "Languages" line at the top.
 - **Whole-repo only.** Partial maps create false confidence ("I see the dependency graph" — but you only see half of it). One artifact, always complete.
-- **Never edit sidecars or doc files.** This skill is one-way: it reads `.design.yaml` and writes `MAP.md`. Going the other direction is `/design-rebuild-<lang>`'s job.
+- **Never edit sidecars or DESIGN.md files.** This skill is one-way: it reads `.design.yaml` and writes `MAP.md`. Going the other direction is `/design-rebuild`'s job.
 - **Idempotent.** Same inputs → byte-identical `MAP.md`. Re-runs are safe and silent when nothing changed.
 - **Never auto-commit.** User reviews with `git diff MAP.md` and commits when ready.
 - **MAP.md is regenerated whole.** The header explicitly says "do not edit by hand" — hand edits will be lost on next run. If you want narrative beyond what sidecars provide, put it in `ARCHITECTURE.md` or `README.md`, not `MAP.md`.

@@ -1,11 +1,11 @@
-Check whether per-folder `.design.yaml` sidecars are stale relative to HEAD. Pure git, no LLM judgment, language-agnostic (the sidecar schema is the same regardless of which `/design-rebuild-<lang>` skill wrote it). Use standalone, or as a cheap subroutine from `/start_pr` / `/checkpoint`.
+Check whether per-folder `.design.yaml` sidecars are stale relative to HEAD. Pure git, no LLM judgment, language-agnostic. Use standalone, or as a cheap subroutine from `/start_pr` / `/checkpoint`.
 
 See `~/newstack/brain/DESIGN_SKILL_SPEC.md` §"Drift check" for the design rationale.
 
 ## When to use
 
 - From `/start_pr`: which folders touched by this PR have a stale `.design.yaml`?
-- Standalone: spot-check before deciding whether to run a `/design-rebuild-<lang>`.
+- Standalone: spot-check before deciding whether to run a `/design-rebuild`.
 - Before `/checkpoint`: surface folders the next rebuild should hit.
 
 ## Modes
@@ -58,20 +58,20 @@ One line per folder. Suggested status vocabulary:
 - `fresh (<sha>)` — `last_rebuilt` is HEAD's ancestor and nothing in the folder changed since.
 - `DRIFT — ...` — something changed; rebuild is recommended.
 - `NO MODEL` — no `.design.yaml` (might be a pass-through folder, or never rebuilt).
-- `NO ANCHOR` — `.design.yaml` exists but has no `last_rebuilt`. Treat as drift; rerun the appropriate `/design-rebuild-<lang>`.
+- `NO ANCHOR` — `.design.yaml` exists but has no `last_rebuilt`. Treat as drift; rerun the appropriate `/design-rebuild`.
 
 Exit code: `0` if all folders are fresh or have NO MODEL; `1` if any DRIFT or NO ANCHOR was detected. Other skills can `if /design-drift-check --touched; then ...; fi`.
 
 End with one practical line:
 
 ```
-Drift detected in K folder(s). Run /design-rebuild-<lang> --folder <path> for targeted rebuilds, or /design-rebuild-<lang> for a full pass.
+Drift detected in K folder(s). Run /design-rebuild --folder <path> for targeted rebuilds, or /design-rebuild for a full pass.
 ```
 
 ## Principles
 
 - Git-only. No reading source files, no LLM calls. This skill is meant to be cheap enough to run on every PR.
-- **Language-agnostic.** The `.design.yaml` schema is the same regardless of who wrote it; this skill never needs to know whether the folder is Go, TS, Rust, etc.
-- Report; do not act. The decision to rebuild belongs to the user (or to a `/design-rebuild-<lang>` skill when explicitly invoked).
-- The `last_rebuilt` SHA is the only freshness signal. If it falls out of history (force-push, squash), report DRIFT and let the appropriate `/design-rebuild-<lang>` re-anchor it.
+- **Language-agnostic.** The `.design.yaml` schema is the same regardless of which language the folder contains; this skill never needs to know whether the folder is Go, TS, Rust, etc.
+- Report; do not act. The decision to rebuild belongs to the user (or to a `/design-rebuild` skill when explicitly invoked).
+- The `last_rebuilt` SHA is the only freshness signal. If it falls out of history (force-push, squash), report DRIFT and let the appropriate `/design-rebuild` re-anchor it.
 - NO MODEL is not an error. A folder may legitimately not have a `.design.yaml` (pass-through, fixtures, generated). Don't pressure-create them.
