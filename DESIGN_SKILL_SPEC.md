@@ -98,19 +98,19 @@ The contract for `/design-drift-check`, `/design-map`, and `/start_pr` cold-star
 
 ```yaml
 package: localauth                  # folder identity, typically the folder basename
-purpose: Form-based local username/password auth — signup, login, verify, reset, channel linking.
+purpose: "Form-based local username/password auth: signup, login, verify, reset, channel linking."
 language: go                        # informational only; used by /design-map's "Languages: ..." line
 last_rebuilt: <commit SHA>          # the freshness anchor — set to git rev-parse HEAD at rebuild time
 last_rebuilt_at: 2026-...           # ISO 8601 UTC, informational
 entities:
   - name: LocalAuth
     kind: struct
-    role: Central config-and-handler object.
-    why: Deliberately a flat bag of optional fields so apps wire only what they use.
+    role: "Central config-and-handler object."
+    why: "Deliberately a flat bag of optional fields so apps wire only what they use."
   - name: LocalAuth.HandleSignup
     kind: method
-    role: Registration handler.
-    why: Username reservation and verification-email failures are warned-not-fatal to avoid leaving half-created accounts.
+    role: "Registration handler."
+    why: "Username reservation and verification-email failures are warned-not-fatal to avoid leaving half-created accounts."
 depends_on:                         # filled by Pass 2; cross-folder references
   - path: ../core
     entities: [User, IdentityStore, ChannelStore, ...]
@@ -120,6 +120,24 @@ Notes:
 - The `language:` field is informational. Drift-check and map don't branch on it; only `/design-map`'s stat line uses it.
 - `last_rebuilt` is the only freshness signal. If it falls out of HEAD's history (force-push, squash), drift-check returns DRIFT and the next rebuild re-anchors.
 - `entities[].name` is what `**Entities**:` lines in `CONSTRAINTS.md` / `CAPABILITIES.md` resolve against. Stability matters — renaming invalidates rule bindings.
+- **`purpose`, `role` and `why` are always double-quoted.** They carry generated
+  prose about code, and that prose breaks unquoted YAML routinely: a plain scalar
+  cannot begin with a backtick or a quote character, and cannot contain `: `.
+  Every one of those shows up naturally when describing an API (``role: `ListApps`
+  returns…``, `role: … returns {Active: false}`, `why: '~'-prefixed parts…`).
+  Escape `\` and `"` inside the quotes, and prefer backticks over double quotes
+  when naming an identifier. `name`, `kind`, `package`, `language` and
+  `last_rebuilt` stay unquoted; they are identifiers and SHAs.
+- **The quietest failure is ` #`.** An unquoted value containing a hash is
+  truncated there with no parse error, so `why: … tracked under issue #189.`
+  silently becomes `why: … tracked under issue`. Issue and PR references are
+  exactly what a `why` line wants to cite. Quoting fixes it, and only quoting
+  will, since a parse check cannot see this one at all.
+- **A written sidecar must be parsed before the pass reports success.** The
+  failure mode is silent: every consumer skips a sidecar it cannot parse, so a
+  broken file reads as an undocumented folder rather than as an error. One repo
+  lost nine of its twenty-one sidecars this way before the rule existed. Both the
+  writing subagent and an orchestrator sweep check, so a skipped check is caught.
 
 ## File layout
 

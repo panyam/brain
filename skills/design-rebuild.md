@@ -112,15 +112,15 @@ Format rules:
 
 ```yaml
 package: <folder identity, typically the folder basename>
-purpose: <one-sentence purpose>
+purpose: "<one-sentence purpose>"
 language: go              # informational only — used by /design-map's "Languages: go (N), ts (M)" stat
 last_rebuilt: <commit SHA at rebuild time>
 last_rebuilt_at: 2026-...
 entities:
   - name: <e.g. LocalAuth, LocalAuth.HandleSignup>
     kind: <struct|interface|func|method|class|type|const|...>
-    role: <one line: what it is>
-    why: <one line: design rationale, constraint, or gotcha>
+    role: "<one line: what it is>"
+    why: "<one line: design rationale, constraint, or gotcha>"
 depends_on:               # filled by Pass 2; Pass 1 leaves empty
   - path: ../core
     entities: [User, IdentityStore, ChannelStore, ...]
@@ -129,6 +129,69 @@ depends_on:               # filled by Pass 2; Pass 1 leaves empty
 Notes:
 - `doc_file:` and `diagrams_file:` keys from prior iterations are **removed** from the schema. The skill always writes `<folder>/DESIGN.md`; nothing else to declare.
 - `language:` is informational only — used by `/design-map` to render a stat line. Drift-check and map don't branch on it.
+
+### Quoting: `purpose`, `role` and `why` are always double-quoted
+
+These three carry generated prose, and prose collides with YAML constantly. An
+unquoted value is a plain scalar, and a plain scalar cannot start with a backtick
+or a quote character and cannot contain `: `. All three happen naturally when you
+are describing code:
+
+```yaml
+role: `ListApps` on a fresh store returns an empty slice.   # BREAKS: leading backtick
+role: RFC 7662 introspection, returns {Active: false}.      # BREAKS: contains ": "
+why: '~'-prefixed parts are excel-base-decoded.             # BREAKS: leading quote
+```
+
+So: **always wrap `purpose`, `role` and `why` in double quotes.** Inside them,
+escape `\` as `\\` and `"` as `\"`. Prefer backticks over double quotes when you
+name an identifier, which keeps the escaping rare.
+
+```yaml
+role: "`ListApps` on a fresh store returns an empty slice."
+role: "RFC 7662 introspection. Returns {Active: false} for any invalid token."
+why: "`PublicMethods` keys are matched against `info.FullMethod`; a typo silently turns into \"auth required\"."
+```
+
+`name`, `kind`, `package`, `language`, `last_rebuilt` and `depends_on` are
+identifiers and SHAs. Leave them unquoted.
+
+There is a fourth case, and it is the one that does not announce itself. An
+unquoted value containing ` #` is truncated at the hash, with no parse error at
+all:
+
+```yaml
+why: Kept distinct because DCR has no place for quota fields; see issue #189.
+# YAML reads: "Kept distinct because DCR has no place for quota fields; see issue"
+```
+
+Issue and PR references are exactly the thing a `why` line wants to cite, so this
+is common. Five values had already been quietly clipped in the repo the rule came
+from, and nothing had flagged them because the file parsed fine.
+
+Getting this wrong fails silently. A sidecar that does not parse is invisible to
+every consumer: `/design-drift-check`, `/design-map`, and diffpp's `review_prior`
+all skip it, so a broken file reads as an undocumented folder rather than as an
+error. Nine of one repo's twenty-one sidecars were lost this way before the rule
+existed.
+
+### Validation: every sidecar must parse before the pass reports success
+
+Whatever the quoting rule, generated YAML needs a machine check. After writing a
+sidecar, parse it. Use whichever parser the machine has:
+
+```bash
+# ruby ships with macOS and most Linux; pyyaml and yq are common alternatives
+validate_yaml() {
+  if command -v ruby >/dev/null;  then ruby -ryaml -e "YAML.load_file('$1')" && return; fi
+  if command -v yq >/dev/null;    then yq '.' "$1" >/dev/null && return; fi
+  python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$1"
+}
+validate_yaml "<folder>/.design.yaml" || { echo "INVALID: <folder>/.design.yaml"; }
+```
+
+A parse failure is a bug in the file you just wrote, not in the parser. Fix the
+quoting and re-check before reporting the folder done.
 
 ## Algorithm
 
@@ -208,17 +271,37 @@ For each candidate folder in `rebuild_set`, spawn one `Agent` with `subagent_typ
 >
 > ```yaml
 > package: <name>
-> purpose: <one-sentence purpose>
+> purpose: "<one-sentence purpose>"
 > language: <go|ts|rust|python|...>
 > last_rebuilt: <head_sha>
 > last_rebuilt_at: <ISO 8601 UTC>
 > entities:
 >   - name: <name>
 >     kind: <kind>
->     role: <one line>
->     why: <one line>
+>     role: "<one line>"
+>     why: "<one line>"
 > depends_on: []                    # leave EMPTY; Pass 2 fills it
 > ```
+>
+> **Quote `purpose`, `role` and `why` with double quotes, always.** They carry
+> prose about code, and prose about code breaks unquoted YAML: a value cannot
+> start with a backtick or a quote character, and cannot contain `: `. All three
+> come up constantly (``role: `ListApps` returns…``, `role: … returns {Active:
+> false}`, `why: '~'-prefixed parts…`). Inside the quotes, escape `\` as `\\` and
+> `"` as `\"`; prefer backticks over double quotes when naming an identifier so the
+> escaping stays rare. Leave `name`, `kind`, `package`, `language` and
+> `last_rebuilt` unquoted, they are identifiers and SHAs.
+>
+> **Then verify it parses**, before you report the folder done:
+>
+> ```bash
+> ruby -ryaml -e "YAML.load_file('<folder>/.design.yaml')" \
+>   || python3 -c "import yaml,sys; yaml.safe_load(open('<folder>/.design.yaml'))"
+> ```
+>
+> A parse error is a bug in the file you just wrote. Fix the quoting and re-check.
+> A sidecar that does not parse is invisible to every consumer, so it reads as an
+> undocumented folder rather than as an error.
 >
 > ---
 >
@@ -323,6 +406,24 @@ For each affected folder, spawn one `Agent` (`subagent_type=general-purpose`) wi
 
 Parallel; orchestrator coordinates only.
 
+### Pass 2.5 — sidecar parse sweep (single orchestrator pass)
+
+Every sidecar Pass 1 or Pass 2 wrote has to parse. Each subagent checks its own
+file, but this sweep is the one that runs unconditionally, so a subagent that
+skipped its check does not ship a silently-invisible folder.
+
+```bash
+for sidecar in $(git ls-files '*.design.yaml'; git ls-files -o --exclude-standard '*.design.yaml'); do
+  ruby -ryaml -e "YAML.load_file('$sidecar')" 2>&1 >/dev/null \
+    || python3 -c "import yaml,sys; yaml.safe_load(open('$sidecar'))" 2>&1 >/dev/null \
+    || echo "INVALID: $sidecar"
+done
+```
+
+Repair any file that fails, almost always by quoting a `purpose`, `role` or `why`
+whose prose starts with a backtick or a quote, or contains `: `. Re-check, and
+carry the count into the summary.
+
 ### Pass 3 — top-level constraint verification (single orchestrator pass)
 
 Walk repo-root `CONSTRAINTS.md` and `CAPABILITIES.md` if they exist. For each rule with an `**Entities**:` line (the additive binding):
@@ -345,6 +446,7 @@ Rebuilt:    N folders (Pass 1 ran — DESIGN.md + .design.yaml written)
 Fresh:      F folders (skip-if-fresh — left untouched)
 Ineligible: M folders (pass-through, excluded, or no source worth modeling)
 Cross-folder linking updated: K folders (Pass 2)
+Sidecars parsed: S ok, T repaired (Pass 2.5)
 Top-level refs verified: P pass, Q fail
   FAIL: CONSTRAINTS.md "<rule name>" — <folder>/<Entity> not in <folder>/.design.yaml
 
