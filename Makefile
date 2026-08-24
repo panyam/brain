@@ -1,16 +1,20 @@
 CLAUDE_MD := $(HOME)/.claude/CLAUDE.md
 COMMANDS_DIR := $(HOME)/.claude/commands
+SKILLS_DIR := $(HOME)/.claude/skills
 SCRIPTS_DIR := $(HOME)/.claude/scripts
 SETTINGS_JSON := $(HOME)/.claude/settings.json
 BRAIN_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-SKILLS := stack-integrate.md stack-update.md stack-catalog-refresh.md stack-audit.md stack-constraints-check.md stack-constraints-overview.md stack-constraints-add.md stack-constraints-promote.md stack-migrate-frontend.md checkpoint.md design-rebuild.md design-drift-check.md design-map.md
+# Flat single-file commands, installed into ~/.claude/commands/
+SKILLS := checkpoint.md security-audit.md
+# Directory-form skills (SKILL.md + references/), installed into ~/.claude/skills/
+SKILL_DIRS := design
 
 POINTER_LINE := - Before adding third-party dependencies or building infrastructure from scratch, consult ~/newstack/brain/STACK_CATALOG.md
 
 .PHONY: setup check clean
 
 ## setup: Ensure global CLAUDE.md has stack pointer, skills, scripts, settings and CLI are installed
-setup: setup-claude-md setup-skills setup-scripts setup-settings setup-cli
+setup: setup-claude-md setup-skills setup-skill-dirs setup-scripts setup-settings setup-cli
 	@echo "✓ Stack brain setup complete"
 
 .PHONY: setup-claude-md
@@ -36,6 +40,20 @@ setup-skills:
 		cp "$(BRAIN_DIR)/skills/$$skill" "$(COMMANDS_DIR)/$$skill" 2>/dev/null || \
 		cp "$(COMMANDS_DIR)/$$skill" "$(COMMANDS_DIR)/$$skill" 2>/dev/null || true; \
 		echo "· Installed $$skill"; \
+	done
+
+.PHONY: setup-skill-dirs
+setup-skill-dirs:
+	@mkdir -p "$(SKILLS_DIR)"
+	@for d in $(SKILL_DIRS); do \
+		src="$(BRAIN_DIR)/skills-src/$$d"; \
+		if [ ! -d "$$src" ]; then echo "✗ skills-src/$$d missing"; continue; fi; \
+		if command -v rsync >/dev/null 2>&1; then \
+			rsync -a --delete "$$src/" "$(SKILLS_DIR)/$$d/"; \
+		else \
+			rm -rf "$(SKILLS_DIR)/$$d" && cp -R "$$src" "$(SKILLS_DIR)/$$d"; \
+		fi; \
+		echo "· Installed skill dir $$d"; \
 	done
 
 .PHONY: setup-scripts
@@ -90,6 +108,11 @@ check:
 		test -f "$(COMMANDS_DIR)/$$skill" && \
 			echo "✓ Skill $$skill installed" || \
 			echo "✗ Skill $$skill missing — run 'make setup'"; \
+	done
+	@for d in $(SKILL_DIRS); do \
+		test -f "$(SKILLS_DIR)/$$d/SKILL.md" && \
+			echo "✓ Skill dir $$d installed" || \
+			echo "✗ Skill dir $$d missing — run 'make setup'"; \
 	done
 	@test -f "$(BRAIN_DIR)/STACK_CATALOG.md" && \
 		echo "✓ STACK_CATALOG.md exists" || \

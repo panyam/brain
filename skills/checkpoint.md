@@ -1,3 +1,8 @@
+---
+description: "Sync this session's learnings into the project's checked-in documentation. Updates CLAUDE.md and the project's other docs, syncs stack artifacts, prunes auto-memory, and writes the perishable half to a HANDOFF file. Use when the user says \"checkpoint\", \"save what we learned\", \"update the docs before we stop\", or is wrapping up a session with lessons worth keeping."
+argument-hint: "[--handoff-only]"
+---
+
 Sync learnings from this session into the project's checked-in documentation.
 
 ## Steps
