@@ -1,3 +1,7 @@
+---
+description: "Run a security audit on the current project, combining automated tool scanning with a threat-model review to surface vulnerabilities, gaps in test coverage, and hardening opportunities. Use before a release or deployment, after adding dependencies or new HTTP endpoints or auth flows, for a quarterly review, or when the user asks to check the project's security posture."
+---
+
 # Security Audit
 
 Run a comprehensive security audit on the current project. Combines automated tool scanning with AI-assisted threat model review to find vulnerabilities, gaps in test coverage, and hardening opportunities.

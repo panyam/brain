@@ -1,118 +1,143 @@
-# Per-Folder Documentation Skills — Specification
+# Per-Folder Design Documentation — Specification
 
-A staleness-resistant, language-native, per-folder documentation system: each folder's docs live in the **language-idiomatic doc file** (e.g. `doc.go` for Go), with sequence diagrams in a per-folder `diagrams.md`, and a `.design.yaml` sidecar holding machine-readable metadata. Maintained by per-language `/design-rebuild-<lang>` skills; freshness-checked by a language-agnostic `/design-drift-check`; collated into a top-level `MAP.md` by a language-agnostic `/design-map`.
+A staleness-resistant, **language-agnostic**, per-folder architecture-documentation system. Each folder gets one rich-markdown `DESIGN.md` (entities table, inline Mermaid flows, gotchas, dependency links) plus a machine-readable `.design.yaml` sidecar. A single `/design rebuild` skill maintains both; `/design check` reports staleness; `/design map` collates a top-level `MAP.md` from the sidecars.
 
 ## Goal
 
-Capture the parts of a project that **do not survive rederivation by grep**: package purpose, the *why* behind each named entity, declared relationships between entities, and the bindings between entities and architectural rules. Make this artifact (i) per-folder so blast radius of any single update is small, (ii) **language-native** so readers (and LLMs) find it where they already look, (iii) machine-checkable via a structured sidecar so staleness is detectable, (iv) consumed by other skills (`/start_pr`, `/checkpoint`, plan mode) so being out of date has visible consequences.
+Capture the parts of a project that **do not survive rederivation by grep**: package purpose, the *why* behind each named entity, declared relationships between entities, and the bindings between entities and architectural rules. Make this artifact (i) per-folder so blast radius of any single update is small, (ii) **rendered richly on GitHub** (inline Mermaid, tables, structured headings, anchor links), (iii) machine-checkable via a structured sidecar so staleness is detectable, (iv) consumed by other skills (`/start_pr`, `/checkpoint`, plan mode) so being out of date has visible consequences.
 
 ## Non-goals
 
 - Capturing every method or call edge. That rots fastest, adds least value, can be re-derived.
-- Replacing `ARCHITECTURE.md` / `README.md` / `SUMMARY.md`. The per-folder artifacts are local; those remain top-level narrative.
-- Replacing `CONSTRAINTS.md` / `CAPABILITIES.md`. Those stay, but reference entities from the per-folder sidecars.
+- Replacing `ARCHITECTURE.md` / `README.md` / `SUMMARY.md`. DESIGN.md is per-folder; those remain top-level narrative.
+- Replacing `CONSTRAINTS.md` / `CAPABILITIES.md`. Those stay, but optionally reference entities from the per-folder sidecars.
 - Generating from scratch every time. Rebuilds are full but rare; skip-if-fresh is the default.
-- One artifact format across all languages. The whole point of the pivot is per-language idiomatic homes.
+- Managing language-native doc files (`doc.go`, `README.md`, `lib.rs`, `__init__.py` docstrings). Those are human/agent territory. The skill stays out of source files entirely.
 
-## Architectural principle: push variation to the boundary
+## Architectural principle: one artifact, two surfaces
 
-Variation lives in *writing* documentation — Go's `doc.go` ≠ TypeScript's `README.md` + TSDoc ≠ Rust's `//!` ≠ Python's `__init__.py` docstring. Variation does NOT live in *reading* metadata. The `.design.yaml` schema is the same regardless of which language skill wrote it, so downstream tools stay language-agnostic.
+The skill owns **DESIGN.md** (for humans, LLMs, agents — rendered on GitHub with full markdown) and **`.design.yaml`** (for tooling — `/design check`, `/design map`, `/start_pr`).
 
-| Skill | Language-specific? | Reads | Writes |
-|---|---|---|---|
-| `/design-rebuild-go` | yes | `*.go` source | `doc.go`, `diagrams.md`, `.design.yaml` |
-| `/design-rebuild-ts` (future) | yes | `*.ts` / `*.tsx` | `README.md`, `diagrams.md`, `.design.yaml` |
-| `/design-rebuild-<lang>` | yes | `*.<ext>` | language-native doc, `diagrams.md`, `.design.yaml` |
-| `/design-drift-check` | **no** | `.design.yaml` | nothing (reports only) |
-| `/design-map` | **no** | every `.design.yaml` in repo | `MAP.md` at repo root |
+It does **not** own language-native doc files. Symbol-level documentation (godoc comments, JSDoc, Rust `///` doc comments, Python docstrings) lives on its symbols in the source files — co-located with the code it documents, reviewed alongside the code in PRs. The skill captures package-level *architecture* — purpose, entities, flows, gotchas, relationships — not API documentation.
 
 ## Per-folder artifacts
 
-Three files per qualifying folder. Each has one clearly-scoped job.
+Two files per qualifying folder. Each has one clearly-scoped job.
 
-### 1. Language-native doc file (e.g. `doc.go`, `README.md`)
+### 1. `DESIGN.md` — rich-markdown architecture document
 
-What the language ecosystem expects. Rendered natively by language tooling — `go doc`, `pkg.go.dev`, IDE hover, npm registry, etc. Readers and LLMs find it without knowing about this skill.
+Fully skill-owned. Rewritten from scratch each rebuild. Renders natively on GitHub with inline Mermaid sequence diagrams, markdown tables, anchor-linked sections.
 
-**Full skill ownership.** The doc file is rewritten from scratch on every rebuild — no markers, no header line, no "preserve human content" logic. The file's structure for Go is:
+Structure:
 
-```go
-// Package localauth provides form-based local username/password authentication.
-//
-// The package owns the HTTP layer for signup/login/verify/reset and the
-// channel-linking helpers; storage interfaces are received via callback fields
-// on LocalAuth, not embedded.
-//
-// ENTITIES
-//
-// LocalAuth — Central config-and-handler object holding all wiring.
-// Deliberately a flat bag of optional fields so apps wire only what they use.
-//
-// LocalAuth.HandleSignup — Registration handler. Username reservation and
-// verification-email failures are warned-not-fatal to avoid leaving
-// half-created accounts.
-//
-// FLOWS
-//
-// See [diagrams.md](diagrams.md) for sequence diagrams of: signup, login,
-// password reset.
-package localauth
+```markdown
+# <folder name>
+
+<one-paragraph overview: what the package owns, what it doesn't, what's notable about its shape>
+
+## Contents
+
+- [Entities](#entities)
+- [Flows](#flows)
+  - [<Flow 1>](#<anchor>)
+  - [<Flow 2>](#<anchor>)
+- [Gotchas](#gotchas)
+- [Depends on](#depends-on)
+
+## Entities
+
+| Entity | Kind | Role | Why |
+|---|---|---|---|
+| `LocalAuth` | struct | Central config-and-handler object. | Deliberately a flat bag of optional fields so apps wire only what they use. |
+| `LocalAuth.HandleSignup` | method | Registration handler. | Username reservation and verification-email failures are warned-not-fatal to avoid leaving half-created accounts. |
+
+## Flows
+
+### Signup
+
+\`\`\`mermaid
+sequenceDiagram
+    participant C as Client
+    participant L as LocalAuth
+    participant S as Stores
+    C->>L: POST /signup
+    L->>S: create user + identity + channel
+    L-->>C: 200 (logged in or "verify email")
+\`\`\`
+
+### Login
+
+\`\`\`mermaid
+sequenceDiagram
+    ...
+\`\`\`
+
+## Gotchas
+
+- **Username login lacks the dummy-bcrypt timing defense** — `NewCredentialsValidatorWithUsername` does not run a dummy bcrypt on user-not-found, unlike the email/phone validator. Username-existence enumeration is possible via timing.
+- **HandleLinkCredentials sniffs error strings** — the "already exists" → 409 mapping uses substring match on the error message from `LinkLocalCredentials`. Brittle coupling.
+
+## Depends on
+
+- [`core/`](../core/DESIGN.md) — `User`, `Identity`, `Channel`, `ChannelStore`, `IdentityStore`, ...
+- [`utils/`](../utils/DESIGN.md) — `ComputeKid`, `JWK`, ...
 ```
 
-**Where each kind of documentation lives:**
+Format rules:
+- **One H1** with the folder name.
+- **One opening paragraph** before the TOC.
+- **`## Contents` TOC** auto-generated from the sections actually present. Kebab-case anchors. Nest one level deep for flows.
+- **`## Entities`** is a markdown table; methods qualified as `Receiver.Method`; identifier names in backticks.
+- **`## Flows`** has one `###` heading per flow, each containing a Mermaid `sequenceDiagram` (or `flowchart` for decision trees). Omit the section entirely if no flows worth diagramming.
+- **`## Gotchas`** is a bulleted list, bolded short title + one-paragraph explanation per gotcha. Omit if there are none.
+- **`## Depends on`** is filled by Pass 2 (cross-folder linking). The section is always present in the rendered file; Pass 1 leaves a placeholder, Pass 2 populates with sibling DESIGN.md links + the specific entities referenced.
 
-| Kind of documentation | Where it lives | Owned by |
-|---|---|---|
-| Symbol-level godoc (types, funcs, methods) | The `.go` file containing the symbol | Human / agent (co-located with code) |
-| Examples | `<pkg>_test.go` via `ExampleXxx` functions | Human / agent (idiomatic Go) |
-| Package-level prose (intro + entity catalog + flow links) | `doc.go` | `/design-rebuild-go` skill (full file) |
+### 2. `.design.yaml` — machine-readable sidecar
 
-The split exists because doc.go and source files have fundamentally different ownership boundaries. Source files contain code humans/agents wrote; the godoc comments next to each symbol live with the code's semantics and get reviewed alongside it in PRs. `doc.go` has no code — its only job is package-level prose — so the skill commandeering it cleanly is a net win.
-
-**Why no markers.** An earlier iteration used `<!-- design:start --> ... <!-- design:end -->` HTML comments to scope the auto-section inside a shared doc.go. That leaked as visible literal text on pkgsite/pkg.go.dev (which doesn't filter HTML comments). Full file ownership eliminates the boundary entirely — nothing to mark, nothing to leak.
-
-**First-run protection.** If a folder has an existing `doc.go` but no `.design.yaml` yet (i.e., this is the first time the skill has touched this folder), the skill prompts before overwriting. After the first successful rebuild, `.design.yaml` exists and signals "this folder is skill-managed" — subsequent runs overwrite freely.
-
-### 2. `diagrams.md` (per-folder, optional)
-
-Mermaid `sequenceDiagram` blocks (or `flowchart` for decision trees) for multi-step interactions: signup flows, request lifecycles, handshakes, state machines. `###` headings serve as anchors so the doc file can link `[Signup flow](diagrams.md#signup)`.
-
-- Created only when at least one flow is worth diagramming. Trivial 1–2-step flows do not earn a diagram.
-- Rendered natively on GitHub when the reader follows the link from the doc file.
-- pkg.go.dev (and most language doc renderers) do not render Mermaid; that's why diagrams live in a separate file and are linked rather than inlined.
-
-### 3. `.design.yaml` (per-folder, always)
-
-Machine-readable sidecar. The contract for `/design-drift-check` and `/design-map`. Schema:
+The contract for `/design check`, `/design map`, and `/start_pr` cold-start. Schema:
 
 ```yaml
-package: localauth                  # package identity (typically the folder basename)
-purpose: Form-based local username/password authentication...   # one sentence
-language: go                        # which language family
-doc_file: doc.go                    # which file holds the rendered package doc
-diagrams_file: diagrams.md          # OMIT this key entirely if no flows
+package: localauth                  # folder identity, typically the folder basename
+purpose: "Form-based local username/password auth: signup, login, verify, reset, channel linking."
+language: go                        # informational only; used by /design map's "Languages: ..." line
 last_rebuilt: <commit SHA>          # the freshness anchor — set to git rev-parse HEAD at rebuild time
-last_rebuilt_at: 2026-05-22T...     # ISO 8601 UTC, informational
+last_rebuilt_at: 2026-...           # ISO 8601 UTC, informational
 entities:
   - name: LocalAuth
     kind: struct
-    role: Central config-and-handler object holding all wiring.
-    why: Deliberately a flat bag of optional fields so apps wire only what they use.
+    role: "Central config-and-handler object."
+    why: "Deliberately a flat bag of optional fields so apps wire only what they use."
   - name: LocalAuth.HandleSignup
     kind: method
-    role: Registration handler.
-    why: Username reservation and verification-email failures are warned-not-fatal to avoid leaving half-created accounts.
+    role: "Registration handler."
+    why: "Username reservation and verification-email failures are warned-not-fatal to avoid leaving half-created accounts."
 depends_on:                         # filled by Pass 2; cross-folder references
   - path: ../core
-    entities: [User, IdentityStore, TokenStore, ...]
+    entities: [User, IdentityStore, ChannelStore, ...]
 ```
 
-Notes on the schema:
-
-- `language:` is informational + used by `/design-map` to populate the "Languages" line at the top of MAP.md. Not branched on by drift-check or map otherwise.
-- `doc_file:` is **what `/design-map` links to** for that folder. Resolution stays language-agnostic — the map skill doesn't need to know that `doc.go` is special; it just follows whatever path the sidecar declares.
-- `last_rebuilt:` is the only freshness signal. If it falls out of HEAD's history (force-push, squash), drift-check returns DRIFT and the next rebuild re-anchors it.
-- `entities[].name` is what `**Entities**:` lines in `CONSTRAINTS.md` / `CAPABILITIES.md` resolve against. Stability matters — renaming an entity invalidates rule bindings; rebuilds need to be paired with constraint updates.
+Notes:
+- The `language:` field is informational. Drift-check and map don't branch on it; only `/design map`'s stat line uses it.
+- `last_rebuilt` is the only freshness signal. If it falls out of HEAD's history (force-push, squash), drift-check returns DRIFT and the next rebuild re-anchors.
+- `entities[].name` is what `**Entities**:` lines in `CONSTRAINTS.md` / `CAPABILITIES.md` resolve against. Stability matters — renaming invalidates rule bindings.
+- **`purpose`, `role` and `why` are always double-quoted.** They carry generated
+  prose about code, and that prose breaks unquoted YAML routinely: a plain scalar
+  cannot begin with a backtick or a quote character, and cannot contain `: `.
+  Every one of those shows up naturally when describing an API (``role: `ListApps`
+  returns…``, `role: … returns {Active: false}`, `why: '~'-prefixed parts…`).
+  Escape `\` and `"` inside the quotes, and prefer backticks over double quotes
+  when naming an identifier. `name`, `kind`, `package`, `language` and
+  `last_rebuilt` stay unquoted; they are identifiers and SHAs.
+- **The quietest failure is ` #`.** An unquoted value containing a hash is
+  truncated there with no parse error, so `why: … tracked under issue #189.`
+  silently becomes `why: … tracked under issue`. Issue and PR references are
+  exactly what a `why` line wants to cite. Quoting fixes it, and only quoting
+  will, since a parse check cannot see this one at all.
+- **A written sidecar must be parsed before the pass reports success.** The
+  failure mode is silent: every consumer skips a sidecar it cannot parse, so a
+  broken file reads as an undocumented folder rather than as an error. One repo
+  lost nine of its twenty-one sidecars this way before the rule existed. Both the
+  writing subagent and an orchestrator sweep check, so a skipped check is caught.
 
 ## File layout
 
@@ -120,35 +145,31 @@ Notes on the schema:
 repo/
 ├── ARCHITECTURE.md          (existing; narrative)
 ├── README.md                (existing)
-├── MAP.md                   ← auto-generated by /design-map
+├── MAP.md                   ← auto-generated by /design map
 ├── CONSTRAINTS.md           (top-level; cross-folder rules; qualified entity refs)
 ├── CAPABILITIES.md          (optional; top-level; cross-folder capabilities)
 ├── pkg-a/
-│   ├── doc.go               ← language-native doc, full skill ownership
-│   ├── diagrams.md          ← Mermaid (only if flows exist)
-│   ├── .design.yaml         ← machine-readable sidecar
+│   ├── doc.go               (Go-native, hand-authored if at all — skill does not touch)
+│   ├── DESIGN.md            ← rich architecture doc, skill-owned
+│   ├── .design.yaml         ← machine-readable sidecar, skill-owned
 │   ├── CONSTRAINTS.md       (optional; local rules; bare entity refs)
 │   └── CAPABILITIES.md      (optional; local; bare entity refs)
 ├── pkg-b/
-│   ├── doc.go
-│   └── .design.yaml         ← no diagrams.md — no flows worth diagramming
+│   ├── DESIGN.md
+│   └── .design.yaml
 └── ...
 ```
 
 Rule of thumb for constraint split:
 - Constraint/capability entities all in one folder → that folder's file (bare refs).
 - Entities span ≥2 folders → top-level file (qualified `folder/Entity` refs).
-- Folder is a pass-through container (e.g., `cmd/`, `examples/`) → no doc artifacts.
+- Folder is a pass-through container (e.g., `cmd/`, `examples/`) → no DESIGN.md.
 
-## File formats
+## `CONSTRAINTS.md` format
 
-### `pkg/CONSTRAINTS.md` (per-folder; entity refs are bare)
-
-Keeps brain's existing prose format (`### Rule Name / **Rule** / **Why** / **Verify** / **Scope**`) and **adds an optional `**Entities**:` line** per rule binding to the folder's `.design.yaml` entities. Additive — existing CONSTRAINTS.md files continue to work untouched.
+Per-folder and top-level CONSTRAINTS.md keep brain's existing prose format (`### Rule Name / **Rule** / **Why** / **Verify** / **Scope**`) and **optionally add an `**Entities**:` line** per rule binding to the folder's `.design.yaml` entities. Additive — existing files continue to work untouched.
 
 ```markdown
-# Constraints — notebook
-
 ### Store mutations via CRUD only
 **Rule**: store mutations only via Notebook CRUD methods — never reach into the store from outside the package
 **Why**: the single-mutex invariant requires all writers to go through Notebook; direct access bypasses lock ordering
@@ -157,48 +178,35 @@ Keeps brain's existing prose format (`### Rule Name / **Rule** / **Why** / **Ver
 **Entities**: Notebook, store
 ```
 
-### Top-level `CONSTRAINTS.md` (entity refs are qualified)
-
-Same prose format; `**Entities**:` entries use `folder/Entity` form since they cross folder boundaries.
-
-```markdown
-# Constraints
-
-### Notebook events isolation
-**Rule**: Notebook may emit via events.Emit but MUST NOT import internal event types directly
-**Why**: keeps the events package's internal types unexposed; emit is the public contract
-**Verify**: `! grep -E 'events\.(internal|event[A-Z])' notebook/*.go`
-**Scope**: cross-folder (notebook → events)
-**Entities**: notebook/Notebook, events/Emit
-```
-
-`CAPABILITIES.md` mirrors this structure with a positive framing — `**Provides**` and `**Used by**` lines in addition to the standard sections — and the same optional `**Entities**:` binding.
+Top-level `CONSTRAINTS.md` entries use qualified refs (`folder/Entity`) for the same `**Entities**:` line since they cross folder boundaries.
 
 ## Algorithms
 
-### Full rebuild (`/design-rebuild-<lang>` invoked at repo root)
+### Full rebuild (`/design rebuild` invoked at repo root)
 
-Three passes. Each pass parallelizes across folders via subagents to keep the orchestrator context clean.
+Three passes; each pass parallelizes across folders via subagents.
 
 ```
 orchestrator:
-  folders = discover_folders(repo, language=<lang>)   # language-specific filter
+  folders = discover_folders(repo)              # exclude pass-through containers, vendor/, .git/, etc.
   head_sha = git rev-parse HEAD
   prior_depends_on = snapshot every existing .design.yaml's depends_on field
 
-  # Pass 0.5: drift triage
+  # Pass 0.5: drift triage + first-run protection
   rebuild_set, fresh_set = drift_triage(folders, --force?)
+  for folder in rebuild_set:
+    if DESIGN.md exists but .design.yaml does NOT: prompt; skip if user declines
 
   # Pass 1: per-folder rebuild (parallel subagents)
   for folder in rebuild_set in parallel:
-    spawn subagent that reads ONLY <folder>'s source
-    subagent writes: <doc-file>, .design.yaml, optionally diagrams.md
-    subagent rewrites <doc-file> from scratch (full ownership)
+    spawn subagent reading ONLY <folder>'s source
+    subagent writes: DESIGN.md (full structure: H1 + intro + Contents + Entities + optional Flows + optional Gotchas + Depends on placeholder), .design.yaml
 
   # Pass 2: cross-folder linking (parallel subagents)
   pass_2_set = rebuild_set ∪ { f : prior_depends_on(f) ∩ rebuild_set ≠ ∅ }
   for folder in pass_2_set in parallel:
-    spawn subagent that updates ONLY <folder>/.design.yaml's depends_on field
+    spawn subagent that updates <folder>/.design.yaml's depends_on field
+    AND updates <folder>/DESIGN.md's `## Depends on` section with sibling links
 
   # Pass 3: top-level constraint verification (orchestrator, no subagent)
   for file in [CONSTRAINTS.md, CAPABILITIES.md] at repo root:
@@ -209,13 +217,13 @@ orchestrator:
     report unresolved refs (do not auto-fix)
 ```
 
-Subagent boundaries: each subagent gets one folder's files in its context. Orchestrator never reads folder code itself. Skip-if-fresh applies in Pass 1; Pass 2 narrows further based on `prior_depends_on`; Pass 3 is cheap and always runs.
+Skip-if-fresh applies in Pass 1; Pass 2 narrows further based on `prior_depends_on`; Pass 3 is cheap and always runs.
 
 ### Targeted rebuild (`--folder <path>`)
 
-Same passes, scoped to one folder. Does **not** re-walk the depends_on chain in the MVP — if a neighbor is also stale, run `/design-drift-check` and rebuild it separately. Future work may add chain-expansion.
+Same passes, scoped to one folder. Does **not** re-walk the depends_on chain in the MVP — if a neighbor is also stale, run `/design check` and rebuild it separately.
 
-### Drift check (`/design-drift-check`)
+### Drift check (`/design check`)
 
 Pure git-only, language-agnostic. For each candidate folder F:
 
@@ -223,29 +231,29 @@ Pure git-only, language-agnostic. For each candidate folder F:
 sidecar="$F/.design.yaml"
 [ -f "$sidecar" ] || { echo "$F: NO MODEL"; continue; }
 
-last=$(yq '.last_rebuilt' "$sidecar")    # or grep fallback
+last=$(yq '.last_rebuilt' "$sidecar")
 [ -z "$last" ] && { echo "$F: NO ANCHOR"; continue; }
 
-git merge-base --is-ancestor "$last" HEAD || { echo "$F: DRIFT (last_rebuilt out of history)"; continue; }
+git merge-base --is-ancestor "$last" HEAD || { echo "$F: DRIFT (out of history)"; continue; }
 [ -n "$(git diff --name-only "$last" HEAD -- "$F/")" ] && { echo "$F: DRIFT"; continue; }
 echo "$F: fresh ($last)"
 ```
 
-Exit code: 0 if all fresh / NO MODEL; 1 if any DRIFT or NO ANCHOR. Cheap enough to run on every PR.
+Exit code: 0 if all fresh / NO MODEL; 1 if any DRIFT or NO ANCHOR.
 
-### Map (`/design-map`)
+### Map (`/design map`)
 
 1. Walk repo for every `.design.yaml`.
-2. For each: parse `package`, `purpose`, `language`, `doc_file`, `diagrams_file`, `depends_on`.
+2. For each: parse `package`, `purpose`, `language`, `depends_on`.
 3. Build dependency graph (nodes = folders, edges = internal `depends_on`).
 4. Topologically sort for reading order; cycles get a dedicated section.
-5. Render `MAP.md` at repo root with folder names linked to **`doc_file`** (relative), optional `· [diagrams]` link, "Languages: go (N), ts (M)" stat line, and a code-block dependency graph.
+5. Render `MAP.md` at repo root with folder names linked to **`<folder>/DESIGN.md`** (relative), a "Languages: ..." stat line, and a code-block dependency graph.
 
-Always whole-repo; no partial maps. Idempotent — same sidecars in, byte-identical MAP.md out.
+Always whole-repo; idempotent.
 
 ### Bootstrap (one-time enrichment of existing CONSTRAINTS/CAPABILITIES)
 
-Existing `CONSTRAINTS.md` files use the prose format but have no `**Entities**:` line yet. Bootstrap **augments** them in place — no format conversion, just additive enrichment:
+Existing `CONSTRAINTS.md` files use the prose format but have no `**Entities**:` line yet. Bootstrap **augments** them in place — no format conversion:
 
 ```
 for each existing CONSTRAINTS.md or CAPABILITIES.md:
@@ -253,31 +261,37 @@ for each existing CONSTRAINTS.md or CAPABILITIES.md:
     candidates = grep matching entity names from sibling .design.yaml against the rule prose
     propose adding `**Entities**: <candidates>` under the existing **Verify** / **Scope** lines
     flag the proposal with `<!-- bootstrap_review -->` so the human knows to confirm
-emit a report listing all proposed additions; do not auto-apply
+emit a report; do not auto-apply
 ```
 
-After human review removes the marker comments and accepts/edits the entity list, the binding is explicit and self-policing thereafter. The rule body, format, and rest of the file are untouched.
+After human review, the binding is explicit and self-policing thereafter.
 
-## Migration from DESIGN.md (legacy single-file format)
+## Migration from prior formats
 
-Earlier iterations of this system used a single `DESIGN.md` per folder containing both human-readable body and YAML frontmatter. That format is **retired**. Migration:
+### From single-file `DESIGN.md` (the original format)
 
-1. Run the appropriate `/design-rebuild-<lang>` skill at the repo root with `--force`.
-2. Skill writes the three new artifacts (`<doc-file>`, `diagrams.md`, `.design.yaml`) per qualifying folder. Existing `DESIGN.md` files are **not touched** by the skill.
-3. User reviews `git diff`, then `git rm DESIGN.md` in each folder where the new artifacts now exist.
-4. Run `/design-map` to refresh `MAP.md` against the new sidecar locations.
+If your folder already has a hand-written `DESIGN.md`, the skill prompts before overwriting on first run (first-run protection in Pass 0.5). Choose `skip` to preserve, or `yes` to let the skill take over.
 
-No automated migration script — the skill regenerates the content cleanly under the new format, and removing the legacy file is the user's deliberate act.
+### From the per-language `doc.go` + `diagrams.md` + `.design.yaml` format (retired)
+
+If your repo was migrated under the retired `/design rebuild (retired Go variant)` skill, clean up via:
+
+1. `find . -name doc.go -exec grep -l 'ENTITIES\|<!-- design' {} \;` to identify skill-generated `doc.go` files. `git rm` them (the skill no longer manages doc.go).
+2. `find . -name diagrams.md` — delete those (their content moves inline into the new `DESIGN.md`).
+3. Run `/design rebuild --force` at the repo root — writes fresh `DESIGN.md` per folder with diagrams inline; refreshes `.design.yaml`.
+4. Run `/design map` to refresh `MAP.md` against the new DESIGN.md links.
+
+No automated migration script — the skill regenerates content cleanly under the new format, and removing legacy files is the user's deliberate act.
 
 ## Triggers
 
 ### (a) Scheduled remote rebuild
 
-Use `/schedule` to register a nightly remote routine that runs the appropriate per-language rebuild and `/design-map`.
+Use `/schedule` to register a nightly remote routine that runs `/design rebuild` and `/design map`.
 
 ### (b) Manual on-demand
 
-Direct skill invocation: `/design-rebuild-go [--folder <path>] [--force]` or any future `/design-rebuild-<lang>`.
+Direct skill invocation: `/design rebuild [--folder <path>] [--force]`.
 
 ### (c) Commit-count threshold (not in MVP)
 
@@ -285,17 +299,18 @@ Deferred. A git post-commit hook pinging the skill at every Nth commit. Add late
 
 ## Integration
 
-### `/start_pr` (Phase 2 — not in this PR)
+### `/start_pr` (Phase 2 — not yet wired)
 
 1. Identify folders touched by the planned change.
-2. Run `/design-drift-check` on those folders.
-3. If drift: trigger targeted `/design-rebuild-<lang>` before continuing.
+2. Run `/design check` on those folders.
+3. If drift: suggest `/design rebuild` before continuing.
 4. Load `.design.yaml` entities for touched folders into the plan context.
 5. Plan and reviewer guide reference entities by name (e.g., "extends `Notebook.Stream` to honor a new `outputBuffered` variant").
+6. Reviewer's guide auto-includes touched folders' `DESIGN.md` as the entry-point read.
 
-### `/checkpoint`
+### `/checkpoint` (Phase 2 — not yet wired)
 
-Same drift check across all folders touched since the last checkpoint, not just one PR.
+Drift check across all folders touched since the last checkpoint; surface stale folders as a "consider running /design rebuild" nudge. Don't auto-rebuild.
 
 ### Plan mode
 
@@ -303,22 +318,37 @@ Auto-load `.design.yaml` files for the folders the planning task touches. Plan o
 
 ## Open questions / Phase 2+
 
-- **`/start_pr` integration** (Phase 2) — wire `/design-drift-check` into `/start_pr` so touched folders surface drift before planning.
+- **`/start_pr` + `/checkpoint` wiring** (Phase 2) — designed; not yet implemented.
 - **`/schedule` integration** (Phase 2) — nightly routine for active repos.
 - **Bootstrap mode** for existing `CONSTRAINTS.md` files (Phase 1.5).
-- **`/design-rebuild-ts`** (Phase 1.5) — second language. Per-package `README.md` ownership model TBD: full ownership like Go's doc.go is cleanest, but a hand-written `README.md` is more common in TS than a hand-written `doc.go` is in Go, so a delineated convention may be needed. Decide during Phase 1.5 design. Links to `diagrams.md`; writes `.design.yaml` with `language: ts`.
 - **Promote/demote auto-suggest** (Phase 3) — scan constraint files; surface rules whose entity refs all resolve to one folder ("consider demoting") or that grep-match across folders ("consider promoting").
-- **pkg.go.dev / npm URL enrichment** in MAP.md — link to the public registry for each folder, in addition to the local doc file.
-- **Polyglot folders** with multiple languages — MVP assumes one language per folder; cross-language folders deferred.
+- **pkg.go.dev / npm URL enrichment** in `MAP.md` — link to the public registry for each folder.
+- **Splitting big DESIGN.md files** — if a folder's DESIGN.md becomes unwieldy (>2000 lines), the user can hand-split into `<folder>/DESIGN.md` (overview) + `<folder>/designs/<topic>.md` (deep dives). Not baked into the skill until evidence shows it's needed.
+- **`/design-audit-symbols`** — passive checker for missing/shallow godoc on exported symbols (Phase 3, only if symbol-doc drift becomes a real problem).
 
 ## What gets committed vs. derived
 
-- Committed: per-folder `<doc-file>`, `diagrams.md`, `.design.yaml`, per-folder `CONSTRAINTS.md`/`CAPABILITIES.md`, top-level `CONSTRAINTS.md`/`CAPABILITIES.md`, top-level `MAP.md`.
+- Committed: per-folder `DESIGN.md`, `.design.yaml`, per-folder `CONSTRAINTS.md`/`CAPABILITIES.md`, top-level `CONSTRAINTS.md`/`CAPABILITIES.md`, top-level `MAP.md`.
 - Not committed: any cache, hash file, or transient build output. `last_rebuilt` SHA is the only persistent freshness marker.
+
+## Design history (why this is the third iteration)
+
+This spec has been through three pivots; each was a real experiment that produced useful evidence:
+
+1. **Original (PR #1, #2): single `DESIGN.md` per folder** — language-agnostic, YAML frontmatter, rich markdown body. Worked well structurally; the format reconciliation with existing CONSTRAINTS.md was the headline open question.
+
+2. **Per-language with marker injection (PR #3): doc.go + diagrams.md + .design.yaml** — pivoted to write Go's idiomatic doc home (doc.go) with skill content scoped by `<!-- design:start --> ... <!-- design:end -->` markers, plus a separate diagrams.md for Mermaid. Goal: integrate with pkg.go.dev / `go doc` natively. **Bug:** pkgsite renders HTML comments as visible literal text. PR #4 patched the markers but left the broader question open.
+
+3. **Full doc.go ownership (PR #4): doc.go with no markers, rewritten whole** — eliminated the marker bug but produced flat, hard-to-consume output. pkg.go.dev's rendering surface can't carry markdown tables, can't render Mermaid, and links to relative files are unreliable. The rich content we want to produce is fundamentally incompatible with Go-doc rendering.
+
+4. **This pivot (current): unified `DESIGN.md` per folder, language-agnostic** — back to single rich-markdown per folder, with inline Mermaid (no separate diagrams.md), a `## Contents` TOC for navigation, and explicit non-ownership of language-native doc files. GitHub-rendered markdown is the universal rendering surface; symbol-level docs stay in source where the language ecosystem (godoc, JSDoc, etc.) handles them naturally.
+
+The earlier work wasn't wasted — it was the test that disproved the per-language hypothesis. Without seeing flat doc.go on pkgsite, the constraints wouldn't have been clear.
 
 ## MVP scope (this PR + immediate follow-ups)
 
-1. **This PR**: `/design-rebuild-go` skill; `/design-drift-check` and `/design-map` read `.design.yaml`; retire legacy `/design-rebuild` skill and `DESIGN.md` format; spec revision.
-2. **Phase 1.5**: `/design-rebuild-ts` skill; bootstrap mode for existing CONSTRAINTS.md.
-3. **Phase 2**: `/start_pr` and `/schedule` integration.
-4. **Phase 3**: promote/demote suggestions; pkg.go.dev URL enrichment; cross-repo references.
+1. **This PR**: `/design rebuild` skill (resurrected, unified); `/design check` + `/design map` minor updates; retire `/design rebuild (retired Go variant)`; spec rewrite.
+2. **Immediate next (separate PR in oneauth)**: migrate oneauth — delete the marker-era + doc.go-era files, run new `/design rebuild --force`, regenerate `MAP.md`.
+3. **Phase 1.5**: bootstrap mode for existing CONSTRAINTS.md.
+4. **Phase 2**: `/start_pr` and `/checkpoint` integration; `/schedule` registration.
+5. **Phase 3**: promote/demote suggestions; pkg.go.dev URL enrichment; splitting big DESIGN.md (only if needed); `/design-audit-symbols` (only if needed).
